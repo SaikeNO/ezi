@@ -55,7 +55,7 @@ describe("bootstrap UI", () => {
     await userEvent.click(screen.getByRole("link", { name: "Graf witryny" }))
     expect(await screen.findByRole("heading", { name: "Graf witryny" })).toBeInTheDocument()
     await userEvent.click(screen.getByRole("link", { name: "Porównania" }))
-    expect(screen.getByText(/dostępne w etapie 07/)).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Porównania i eksperymenty" })).toBeInTheDocument()
   })
 
   it("aborts pending request on unmount", async () => {

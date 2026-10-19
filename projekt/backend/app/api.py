@@ -231,6 +231,14 @@ def list_page_links(
 def update_session(session_id: UUID, payload: SessionUpdate, db: Database) -> SessionRead:
     db.connection().exec_driver_sql("BEGIN IMMEDIATE")
     crawl = find_session(db, session_id)
+    if crawl.experiments:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "experiment_config_locked",
+                "message": "Wariant eksperymentu jest niezmienny. Utwórz nowy eksperyment.",
+            },
+        )
     if crawl.status != SessionStatus.QUEUED:
         raise HTTPException(
             409,

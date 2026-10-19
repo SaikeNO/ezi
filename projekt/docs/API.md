@@ -1,6 +1,6 @@
 # Planowane API REST i SSE
 
-> Status: etapy 01–06 implementują `/health`, CRUD sesji, start/cancel, SSE, strony/metadane/odnośniki, graf/statystyki oraz filtry i eksport CSV. Eksperymenty i porównania pozostają planowane. Aktualny kontrakt działającego API: `/openapi.json`, interaktywna dokumentacja: `/docs`.
+> Status: etapy 01–07 implementują `/health`, sesje/crawler/SSE, ekstrakcję, graf, eksplorator/CSV oraz eksperymenty i porównania. Raport laboratoryjny/dashboard pozostaje w etapie 08. Aktualny kontrakt: `/openapi.json`, interaktywna dokumentacja: `/docs`.
 
 ## Health — wdrożone w etapie 01
 
@@ -142,7 +142,35 @@ Per_depth: `{depth,pages,fetched_pages,outgoing_links}`, tylko poziomy rekordów
 
 Graph odrzuca wizualizację powyżej 5000 węzłów lub 20000 linków: 413 `graph_too_large`. Nie zwraca uciętego grafu. Stats nadal obejmuje cały zapisany zbiór. UI automatycznie odczytuje stats po 413; dla pozostałych błędów pokazuje błąd i ponowienie. Widok odświeża użytkownik, nie zmienia się automatycznie podczas interakcji. Search na grafie obejmuje URL i skrócone title; lista wyboru pokazuje do 30 dopasowań z jawną liczbą wszystkich trafień, bez filtrowania metryk.
 
-## Zestawienie endpointów
+## Eksperymenty — wdrożone w etapie 07
+
+| Metoda | Ścieżka | Reguły |
+|---|---|---|
+| POST | /api/experiments | 201, Location, ExperimentRead; name 1–200 po wymaganej niepustej treści, start_url z walidacją sesji, variants 2–4 pełne obiekty CrawlConfigInput z domyślnymi polami. Atomowo tworzy osobne queued sesje. Nie rozpoczyna HTTP. |
+| GET | /api/experiments?offset=0&limit=10 | {items,total,offset,limit}; offset 0–2147483647, limit 1–100; porządek created_at/id malejąco. |
+| GET | /api/experiments/{uuid} | id,name,start_url,created_at,state,sessions; sessions to pełne SessionRead rosnąco po created_at/id. |
+| POST | /api/experiments/{uuid}/start | 200 {experiment,errors}; errors to session_id,status,code,message dla nieudanych prób startu queued wariantów. Running/terminal pomijane. Limit pracowników → 429 per wariant, queued zachowane do ręcznego retry. |
+| DELETE | /api/experiments/{uuid} | 204; usuwa grupę/członkostwa, zachowuje sesje, wyniki i działające zadania. |
+
+Brak eksperymentu → 404 experiment_not_found; błędny UUID/wejście → 422. state: incomplete dla mniej niż 2 pozostałych sesji, inaczej running gdy choć jedna działa, queued gdy choć jedna czeka, finished gdy wszystkie terminalne. Incomplete start → 409 experiment_incomplete. Usunięcie sesji nadal usuwa jej członkostwo w grupie, nie inne sesje. Konfiguracja grupy i członków nie ma endpointu edycji: utwórz nowy eksperyment. SessionRead dodaje configuration_locked, wyliczone z członkostwa; PATCH członka → 409 experiment_config_locked, UI ukrywa edycję. Usunięcie grupy odblokowuje queued sesje, jeżeli nie należą do innych grup.
+
+Przykład POST: {"name":"BFS a DFS","start_url":"https://example.com/","variants":[{"strategy":"bfs","max_depth":3},{"strategy":"dfs","max_depth":3}]}. Powtórzone konfiguracje są dozwolone jako powtórzenia pomiaru; każda sesja ma własne ID. Utworzenie grupy nie podpina istniejących sesji — ich porównanie działa osobno.
+
+## Porównanie — wdrożone w etapie 07
+
+POST /api/compare?offset=0&limit=25 przyjmuje {"session_ids":["uuid-A","uuid-B"]}, od 2 do 4 różnych UUID. Wymaga dokładnie tego samego znormalizowanego start_url i statusów terminalnych (completed/failed/cancelled). Brak sesji → 404, zły UUID/lista/duplikaty/nieznane pola → 422, inny start → 409 different_start_urls, queued/running → 409 comparison_not_ready. Nie wykonuje nowych żądań do witryn ani nie zmienia bazy.
+
+Odpowiedź: {start_url,runs,pairs,notes}. Jeden snapshot SQLite obejmuje całość. Pary to A względem B/C/D w kolejności wejścia. Każda lista to {items,total,offset,limit}; wspólny offset 0–2147483647 i limit 1–100 obowiązuje każdą listę niezależnie. Total/metryki obejmują całość. Zmiana partii ponownie odczytuje zapisane dane; usunięcie sesji pomiędzy żądaniami daje 404.
+
+- runs: session (pełny SessionRead/config), discovered_pages, fetched_pages, attempted_pages, errored_pages, link_count, unique_typed_edges, reached_depth, elapsed_seconds, metadata_present oraz stronicowana retrieval_order URL. Próby liczą fetch_order; odebrane HTML final_url; czas finished-started lub null, gdy brak poprawnego przedziału; metadata_present liczy pola różne od null (pusty string jest obecny).
+- pairs: left_id/right_id, config_changes (pole → [A,B]), discovered i fetched (common/left_only/right_only URL), edges (common/left_only/right_only typed edges oraz multiplicity_changes), metadata_changes, depth_changes, retrieval_order_equal i observations.
+- Typowana krawędź: {source,target,kind}, gdzie source/target są URL, a nie ID węzłów grafu. Multiplicity dodaje left_count/right_count, również zero. Unikalna trójka uwzględnia kind; nie mylić z unique_relations etapu 05, które ignoruje rodzaj.
+- metadata_changes: {url,fields}, fields to zmienione title/description/keywords/body, każda wartość [A,B] zawiera {value,length,sha256,truncated}. value to maksymalnie 500 znaków; skrót i długość obejmują pełną treść UTF-8. Null ma value/length/sha256 null; pusty tekst ma length 0 i skrót pustego stringa. Porównujemy tylko wspólnie odebrane HTML, nie brak pobrania przeciwko zapisanej treści.
+- depth_changes: {url,left,right} dla wspólnie odkrytych stron o różnym zapisanym depth. Kolejność prób nie jest porównaniem szybkości ani obietnicą różnych kompletnych grafów.
+
+Budżety łączne: 20000 stron, 80000 linków, 64 MiB treści pól → 413 comparison_too_large. Czas analizy stron 30 s sprawdzany między rekordami → 503 comparison_timeout. Nie ma uciętej odpowiedzi udającej pełne porównanie. Null metryki pozostaje null. Failed/cancelled, błędy i stop_reason inny niż frontier_exhausted dają jawne ostrzeżenie o częściowych wynikach. Notes/observations podają liczby ze snapshotu oraz ograniczenia interpretacji, bez automatycznego wyboru najlepszego ustawienia.
+
+## Pełne zestawienie endpointów
 
 | Metoda | Ścieżka | Działanie |
 |---|---|---|

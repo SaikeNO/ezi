@@ -295,7 +295,8 @@ export function SessionDetail() {
               ))}
             </dl>
             <div className="mt-8 flex flex-wrap gap-3">
-              {item.status === "queued" && (
+              {item.configuration_locked && <p className="text-sm text-muted-foreground">Wariant eksperymentu ma niezmienną konfigurację. Utwórz nowy eksperyment, aby ją zmienić.</p>}
+              {item.status === "queued" && !item.configuration_locked && (
                 <Button
                   variant="outline"
                   onClick={() => {

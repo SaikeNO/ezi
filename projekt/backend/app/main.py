@@ -14,6 +14,7 @@ from app.core.config import Settings
 from app.crawler.manager import CrawlManager, TransportFactory
 from app.database import build_engine
 from app.errors import install_error_handlers
+from app.experiments import router as experiments_router
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ def create_app(
 
     install_error_handlers(application)
     application.include_router(router)
+    application.include_router(experiments_router)
     return application
 
 

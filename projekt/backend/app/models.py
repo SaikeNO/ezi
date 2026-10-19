@@ -105,6 +105,11 @@ experiment_sessions = Table(
 
 class CrawlSession(Base):
     __tablename__ = "sessions"
+
+    @property
+    def configuration_locked(self) -> bool:
+        return bool(self.experiments)
+
     __table_args__ = (
         CheckConstraint(
             "discovered_count >= 0 AND fetched_count >= 0 AND error_count >= 0",

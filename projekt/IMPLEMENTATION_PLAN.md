@@ -54,6 +54,8 @@ Implementuj etapy **kolejno**. Po każdym etapie: wykonaj testy, popraw wykryte 
 
 ## Etap 07 — Experiments & Comparison
 
+**Status:** ukończony 2026-10-19. Eksperymenty, porównania i wykresy pomiarów: `docs/PHASE_07.md`.
+
 **Zadania:** uruchomienie wariantów parametrów dla jednego start URL; porównania BFS/DFS, server/web, typów linków i głębokości; różnice zbiorów stron/krawędzi, zawartości metadanych, głębokości i czasu; wizualizacja metryk; wnioski oparte wyłącznie na zmierzonych danych.
 
 **Definition of Done:** dwie sesje z różnymi ustawieniami dają porównanie z listami elementów wspólnych/unikalnych; metryki są powtarzalne na deterministycznym serwisie testowym.

@@ -1,6 +1,6 @@
 # WebCrawler Studio
 
-Polskojęzyczna aplikacja do badania struktury WWW. **Etap 06 ukończony:** crawler BFS/DFS, sesje SQLite, ochrona SSRF/robots, metadane HTML, interaktywny graf oraz eksplorator danych i konfigurowalny, bezpieczny CSV. Porównania i raporty pozostają w etapach 07–08.
+Polskojęzyczna aplikacja do badania struktury WWW. **Etap 07 ukończony:** crawler, metadane, graf, eksplorator/CSV oraz eksperymenty 2–4 konfiguracji i porównania rzeczywiście zapisanych wyników z wykresami. Raport laboratoryjny/dashboard pozostaje w etapie 08.
 
 ## Uruchomienie w Dockerze
 
@@ -80,7 +80,17 @@ W **Eksport CSV** zaznacz pola w żądanej kolejności, wybierz przecinek/średn
 
 W arkuszu importuj jako UTF-8 z wybranym separatorem; BOM ułatwia rozpoznanie kodowania. Automatyczny separator zależy od ustawień regionalnych. Duże eksporty mają jawny limit 64 MiB i budżet przygotowania 30 s sprawdzany między rekordami — zawęź filtry lub ogranicz pola, gdy otrzymasz komunikat o limicie. Pobieranie można anulować; błędy nie są zapisywane jako CSV. [Kontrakt API](docs/API.md), [raport i lista plików etapu 06](docs/PHASE_06.md).
 
-## Konfiguracja środowiska
+## Porównania i eksperymenty (etap 07)
+
+W **Porównania** podaj nazwę, wspólny start URL i ustaw 2–4 warianty. Formularz udostępnia BFS/DFS, server/web, rodzaje linków, głębokość, limity i przełączniki. Domyślnie porównuje BFS z DFS. **Utwórz eksperyment** zapisuje niezależne queued sesje; **Uruchom oczekujące warianty** w szczegółach rozpoczyna pracę istniejącym bezpiecznym crawlerem. Konfiguracje wariantów pozostają niezmienne. Przy braku wolnych pracowników UI pokazuje błąd dla każdego niewystartowanego wariantu; ponów przyciskiem startu, gdy zwolni się miejsce. Anulowanie jest dostępne w szczegółach każdej sesji.
+
+Po zakończeniu/anulowaniu wybierz **Porównaj warianty**. Można też wskazać 2–4 już istniejące terminalne sesje tego samego URL w sekcji **Porównaj istniejące sesje**. Pierwsza jest bazą A; kolejne są porównywane względem niej. Tabele/wykresy pokazują zapisane strony, linki, głębokość i zmierzony czas. Rozwijane listy pokazują wspólne/unikalne URL i typowane krawędzie, powtórzenia, różnice depth oraz metadanych. Podgląd dużego pola jest ograniczony do 500 znaków, lecz SHA-256 obejmuje całość; null i pusty string są rozróżniane. Listy mają partie po 25, z jawnym total.
+
+Wyniki częściowe/limity/błędy są oznaczane; brak URL nie oznacza, że strona jest nieosiągalna. Pełne zbiory BFS/DFS mogą być identyczne. Czas obejmuje opóźnienia/robots/sieć/analizę i współdzielone zasoby, więc nie dowodzi przewagi algorytmu ani przyczyny zmiany treści. Nie wybieramy automatycznie najlepszego ustawienia.
+
+Usunięcie grupy zachowuje sesje i nie zatrzymuje ich pracy; usunięcie sesji usuwa ją z grupy, a mniej niż dwa pozostałe warianty oznacza incomplete. Dane i konfiguracje przetrwają restart, ale aktywna kolejka crawlera nie jest automatycznie wznawiana. Porównanie ma limit łącznie 20000 Page, 80000 Link, 64 MiB treści i budżet analizy 30 s — duże wyniki dają jawny błąd. [API](docs/API.md), [semantyka](docs/ARCHITECTURE.md), [raport etapu 07](docs/PHASE_07.md).
+
+## Zmienne środowiska
 
 Wspólny plik `projekt/.env` czytają backend, Vite i Compose. Zmiany wymagają ponownego uruchomienia usług.
 
@@ -116,7 +126,7 @@ npm run test:e2e
 
 Playwright sam uruchamia rzeczywisty backend, kontrolowaną witrynę HTTP i frontend na osobnych portach **18000/15173**, z osobną bazą `projekt/data/e2e.db` i konfiguracją CORS. Testowy backend jest wstrzykiwany wyłącznie w `tests/e2e_app.py`; obraz produkcyjny nie zawiera katalogu tests ani takiej opcji środowiskowej. Nie wymaga zatrzymania Compose. Porty testowe muszą być wolne. Testy obejmują odczyt prawdziwego statusu SQLite, ponowienie, nawigację, odświeżenie podstrony, widok mobilny i niedostępność API. Testy obejmują też CRUD sesji, rzeczywiste pobieranie z witryny fixture, limit stron, zachowanie wyników po odświeżeniu i anulowanie. Deterministyczne testy nie zależą od zmiennych publicznych witryn.
 
-Wyniki i lista plików etapu 06: [raport](docs/PHASE_06.md). Wcześniejsze kontrole: [etap 05](docs/PHASE_05.md), [etap 04](docs/PHASE_04.md), [etap 03](docs/PHASE_03.md), [etap 02](docs/PHASE_02.md), [etap 01](docs/PHASE_01.md).
+Wyniki i lista plików etapu 07: [raport](docs/PHASE_07.md). Wcześniejsze kontrole: [etap 06](docs/PHASE_06.md), [etap 05](docs/PHASE_05.md), [etap 04](docs/PHASE_04.md), [etap 03](docs/PHASE_03.md), [etap 02](docs/PHASE_02.md), [etap 01](docs/PHASE_01.md).
 
 ## Struktura
 
@@ -138,6 +148,6 @@ Zależności backendu przypina `uv.lock`; eksport produkcyjny `requirements.lock
 - [API](docs/API.md)
 - [Wymagania laboratorium](docs/LAB_REQUIREMENTS.md)
 
-Ekstrakcja, graf, eksplorator i CSV są wdrożone. Porównania i raporty należą do etapów 07–08. Cytoscape.js jest używany w widoku grafu; Recharts pozostaje do późniejszych analiz. Nawigacja porównań jawnie wskazuje planowany etap 07.
+Ekstrakcja, graf, eksplorator/CSV i porównania są wdrożone. Cytoscape.js obsługuje graf, Recharts wykresy pomiarów porównania. Raport laboratoryjny i dashboard pozostają w etapie 08.
 
 Konfiguracja UI oparta na oficjalnych instrukcjach [Tailwind + Vite](https://tailwindcss.com/docs/installation/using-vite) i [shadcn/ui + Vite](https://ui.shadcn.com/docs/installation/vite). Button wygenerowano CLI shadcn, następnie dopasowano importy do lokalnego `cn` i `@radix-ui/react-slot`.

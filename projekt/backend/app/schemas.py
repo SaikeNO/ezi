@@ -91,6 +91,7 @@ class SessionRead(BaseModel):
     link_count: int
     crawler_version: str | None
     user_agent: str | None
+    configuration_locked: bool
 
 
 class SessionList(BaseModel):

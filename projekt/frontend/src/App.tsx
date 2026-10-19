@@ -7,6 +7,8 @@ const GraphPage = lazy(() => import("@/pages/graph").then(module => ({ default: 
 const graphView = <Suspense fallback={<p role="status">Wczytywanie widoku grafu…</p>}><GraphPage /></Suspense>
 const ExplorerPage = lazy(() => import("@/pages/explorer").then(module => ({ default: module.ExplorerPage })))
 const explorerView = <Suspense fallback={<p role="status">Wczytywanie eksploratora…</p>}><ExplorerPage /></Suspense>
+const ExperimentsPage = lazy(() => import("@/pages/experiments").then(module => ({ default: module.ExperimentsPage })))
+const experimentsView = <Suspense fallback={<p role="status">Wczytywanie porównań…</p>}><ExperimentsPage /></Suspense>
 
 const sections = [
   { path: "/", title: "Przegląd", icon: LayoutDashboard },
@@ -24,7 +26,7 @@ function Overview() {
     <div className="mt-9 grid gap-6 lg:grid-cols-2">
       <HealthPanel />
       <section className="rounded-2xl bg-slate-900 p-6 text-white sm:p-8">
-        <p className="text-xs font-semibold tracking-widest text-teal-300">ETAP 06 / DANE I CSV</p>
+        <p className="text-xs font-semibold tracking-widest text-teal-300">ETAP 07 / EKSPERYMENTY</p>
         <h2 className="mt-4 text-xl font-semibold">Od adresu do wiedzy o witrynie</h2>
         <p className="mt-4 leading-relaxed text-slate-300">Zapisuj sesje i uruchamiaj pobieranie stron z kontrolą limitów, robots.txt i bezpieczeństwa adresów. Odkrywaj graf witryny, metadane stron i statystyki zapisanych relacji.</p>
         <div className="mt-8 flex items-center gap-2 text-sm text-teal-200"><ArrowUpRight aria-hidden="true" size={18} /> Analizy będą oparte na rzeczywistych danych.</div>
@@ -47,7 +49,7 @@ export default function App() {
       </nav>
       <p className="mt-10 text-xs leading-relaxed text-muted-foreground">Laboratorium eksploracji<br />zasobów internetowych</p>
     </aside>
-    <div className="min-w-0"><header className="flex items-center justify-between border-b px-6 py-5 sm:px-10"><span className="text-sm text-muted-foreground">Przestrzeń robocza</span><span className="rounded-full border bg-white px-3 py-1 text-xs">Etap 06</span></header>
+    <div className="min-w-0"><header className="flex items-center justify-between border-b px-6 py-5 sm:px-10"><span className="text-sm text-muted-foreground">Przestrzeń robocza</span><span className="rounded-full border bg-white px-3 py-1 text-xs">Etap 07</span></header>
       <main id="main" className="mx-auto max-w-6xl px-6 py-10 sm:px-10 sm:py-14">
         <Routes>
           <Route path="/" element={<Overview />} />
@@ -57,7 +59,8 @@ export default function App() {
           <Route path="/graph/:id" element={graphView} />
           <Route path="/data" element={explorerView} />
           <Route path="/data/:id" element={explorerView} />
-          <Route path="/experiments" element={<Planned title="Porównania" description="Porównywanie rzeczywistych wyników sesji będzie dostępne w etapie 07." />} />
+          <Route path="/experiments" element={experimentsView} />
+          <Route path="/experiments/:id" element={experimentsView} />
           <Route path="*" element={<Planned title="Nie znaleziono strony" description="Wybierz sekcję z menu nawigacji." />} />
         </Routes>
       </main>

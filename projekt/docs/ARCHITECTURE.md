@@ -1,8 +1,24 @@
 # Architektura i semantyka crawlera
 
-## Stan po etapie 06
+## Stan po etapie 07
 
-Działa monorepo, CRUD sesji i rzeczywisty crawler z kolejką BFS/stosem DFS, start/cancel, zapisanymi częściowymi wynikami i trwałym dziennikiem SSE. Etapy 04–05 dodały metadane HTML, graf Cytoscape.js i statystyki ze snapshotu bazy. Etap 06 dodaje tabelaryczny eksplorator oraz konfigurowalny, filtrowany eksport CSV. Interfejs korzysta wyłącznie z danych API. Porównania i raporty laboratoryjne pozostają w etapach 07–08.
+Działa monorepo, CRUD sesji i rzeczywisty crawler BFS/DFS, metadane, graf Cytoscape, eksplorator i CSV. Etap 07 dodaje zapisane grupy 2–4 konfiguracji wspólnego URL, uruchamianie wariantów oraz porównanie zakończonych sesji z wykresami Recharts. Wszystkie liczniki i wnioski pochodzą z zapisanych danych; raporty laboratoryjne/dashboard pozostają w etapie 08.
+
+### Eksperymenty i porównania
+
+Istniejące Experiment/experiment_sessions i osobne CrawlConfig wystarczają: bez nowej migracji. Utworzenie grupy i 2–4 queued sesji jest atomowe. Sesje są uporządkowane created_at/id; tworzenie nadaje im kolejne mikrosekundy jednego timestampu, zachowując kolejność wariantów wejścia. Konfiguracje członków są niezmienne także przed startem (configuration_locked wyliczane z relacji, PATCH → 409). Zwykłe niezwiązane queued sesje pozostają edytowalne. Usunięcie grupy zachowuje sesje i nie anuluje aktywnych zadań. Dotychczasowe usuwanie sesji zachowuje grupę, lecz usuwa członkostwo; mniej niż dwa pozostałe warianty daje incomplete. Etykiety A–D oznaczają aktualną kolejność pozostałych sesji, nie trwałą tożsamość — identyfikatorem jest UUID.
+
+Start grupy próbuje uruchomić queued warianty istniejącym CrawlManager, bez obejścia ochrony sieci, throttlingu ani limitu czterech pracowników. Running/terminal są pomijane. Każda nieudana próba ma jawny błąd per wariant w odpowiedzi; 429 pozostawia queued i wymaga ręcznego ponowienia. Nie ma ukrytego schedulera/wznowienia po awarii. UI odświeża działającą grupę co sekundę; anulowanie pojedynczego wariantu odbywa się przez szczegóły sesji.
+
+POST compare wymaga 2–4 różnych sesji terminalnych z identycznym zapisanym znormalizowanym start_url. Jeden jawny snapshot SQLite obejmuje wszystkie sesje, konfiguracje, strony i linki. Pierwsza sesja jest bazą A, a wynik zawiera pary A względem każdej kolejnej (nie wszystkie kombinacje). Failed/cancelled i zakończenia przez limit są porównywalne, ale jawnie oznaczone jako częściowe. Nie utożsamiamy braku URL z nieosiągalnością strony.
+
+Porównujemy oddzielnie zbiory odkrytych URL i odebranych HTML (final_url obecny). Tożsamość strony to normalized_url żądania; final_url nie scala stron. Typowana krawędź to trójka source URL, target URL, kind, niezależna od ID bazy. Zbiory krawędzi są deduplikowane do porównania, a Counter osobno wykazuje zmienioną liczbę wystąpień, również zera dla brakującej krawędzi. To precyzyjniejsza tożsamość niż para źródło–cel w unikalnych relacjach grafu etapu 05; obie wielkości są jawnie nazwane.
+
+Title/description/keywords/body porównuje się tylko dla URL pobranych w obu sesjach, po pełnym SHA-256 UTF-8; null i pusty string pozostają różne. Odpowiedź zawiera do 500 znaków podglądu, pełny skrót, długość i flagę skrócenia; nie udaje pełnej treści. Pełny tekst nadal udostępnia Page API. Głębokość jest porównywana dla wspólnie odkrytych stron, kolejność to zapisany fetch_order prób (także nieudanych). Czas to finished_at-started_at; brak albo ujemny przedział daje null, nie zero. Liczniki liczone z rekordów Page/Link, nie skopiowane z licznika sesji.
+
+Budżety łączne dla całego żądania: 20000 Page, 80000 Link, 64 MiB treści pól tekstowych, 30 s sprawdzane podczas analizy stron. Przekroczenie daje 413/503 bez pozornej częściowej odpowiedzi. Duże pola czytane po jednym rekordzie, linki partiami; przechowywane skróty/podglądy zamiast pełnego body. Listy mają wspólny offset/limit 0–2147483647 / 1–100 (domyślnie 25), dokładne total i brak ukrytego ucinania. Globalna partia zmienia każdą listę niezależnie, metryki zawsze obejmują cały snapshot.
+
+Recharts jest ładowany z widokiem porównań, pokazuje osobno liczniki oraz sekundy, z tabelą alternatywną i obsługą klawiatury. Nie imputuje brakującego czasu zerem. Obserwacje podają konkretne liczby wspólne/unikalne i zmienione metadane. Zmiana treści witryny, współdzielony limiter i obciążenie nie pozwalają przypisać każdej różnicy wyłącznie konfiguracji. BFS/DFS nie musi zmieniać pełnego grafu; brak automatycznego rankingu najlepszego wariantu.
 
 ### Eksplorator i CSV
 

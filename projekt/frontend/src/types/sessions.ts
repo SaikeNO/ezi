@@ -40,6 +40,7 @@ export interface CrawlSession extends SessionInput {
   stop_reason: string | null;
   crawler_version: string | null;
   user_agent: string | null;
+  configuration_locked?: boolean;
 }
 export interface SessionList {
   items: CrawlSession[];
