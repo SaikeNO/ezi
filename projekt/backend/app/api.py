@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, defer, selectinload
 
 from app.crawler.manager import TERMINAL
 from app.database import session_scope
+from app.graph import MAX_GRAPH_EDGES, MAX_GRAPH_NODES, GraphRead, GraphStats, projection
 from app.models import CrawlConfig, CrawlEvent, CrawlSession, Link, Page, SessionStatus
 from app.schemas import (
     ErrorResponse,
@@ -97,6 +98,18 @@ def list_sessions(
 @router.get("/{session_id}", response_model=SessionRead)
 def read_session(session_id: UUID, db: Database) -> SessionRead:
     return SessionRead.model_validate(find_session(db, session_id))
+
+
+@router.get(
+    "/{session_id}/graph", response_model=GraphRead, responses={413: {"model": ErrorResponse}}
+)
+def read_graph(session_id: UUID, db: Database) -> GraphRead:
+    return projection(db, session_id, graph_limits=(MAX_GRAPH_NODES, MAX_GRAPH_EDGES))[0]
+
+
+@router.get("/{session_id}/stats", response_model=GraphStats)
+def read_stats(session_id: UUID, db: Database) -> GraphStats:
+    return projection(db, session_id, include_edges=False)[1]
 
 
 def find_page(db: Session, session_id: UUID, page_id: UUID) -> Page:

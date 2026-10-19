@@ -38,6 +38,8 @@ Implementuj etapy **kolejno**. Po każdym etapie: wykonaj testy, popraw wykryte 
 
 ## Etap 05 — Interactive Graph
 
+**Status:** ukończony 2026-10-19. API grafu/statystyk, interfejs Cytoscape i kontrole: `docs/PHASE_05.md`.
+
 **Zadania:** API węzłów/krawędzi, Cytoscape.js; powiększanie, przesuwanie, wyszukiwanie, wybór węzła; kolory głębokości; panel szczegółów; statystyki: osiągnięta głębokość, strony, relacje, linki na stronie głównej i podstronach, wewnętrzne/zewnętrzne, in/out-degree.
 
 **Definition of Done:** graf odpowiada zapisanym wynikom; statystyki zgadzają się z wyliczeniami na grafie; działa interakcja z węzłem.

@@ -1,8 +1,20 @@
 # Architektura i semantyka crawlera
 
-## Stan po etapie 04
+## Stan po etapie 05
 
-Działa monorepo, CRUD sesji i rzeczywisty crawler z kolejką BFS/stosem DFS, start/cancel, zapisanymi częściowymi wynikami i trwałym dziennikiem SSE. Interfejs pokazuje liczniki wyłącznie z API i pozwala uruchamiać/anulować sesje. Etap 04 dodaje ekstrakcję title/description/keywords/body i stronicowane API stron/linków oraz pełny tekst w szczegółach. Graf, ekran eksploratora, CSV i porównania pozostają w dalszych etapach.
+Działa monorepo, CRUD sesji i rzeczywisty crawler z kolejką BFS/stosem DFS, start/cancel, zapisanymi częściowymi wynikami i trwałym dziennikiem SSE. Interfejs pokazuje liczniki wyłącznie z API i pozwala uruchamiać/anulować sesje. Etap 04 dodał ekstrakcję title/description/keywords/body i stronicowane API stron/linków. Etap 05 dodaje skierowany graf Cytoscape.js, wyszukiwanie/wybór węzła, skalowanie/przesuwanie, szczegóły metadanych i statystyki wyliczane ze snapshotu bazy. Eksplorator tabelaryczny, CSV i porównania pozostają w dalszych etapach.
+
+### Projekcja grafu i statystyk
+
+GET graph/stats rozpoczyna jawną transakcję odczytu SQLite przed pierwszym SELECT (także w legacy transaction mode Pythona 3.12). Status, strony i linki w pojedynczej odpowiedzi pochodzą z tego samego snapshotu. Dwa oddzielne żądania podczas crawlowania mogą różnić się stanem; UI używa summary z odpowiedzi grafu i odświeża ją na żądanie.
+
+Każdy Page jest węzłem `page:{uuid}`. Docelowy URL bez Page otrzymuje stabilny identyfikator `target:{sha256(url)}`. Jeden URL ma jeden węzeł, również gdy występuje jako hiperłącze i obraz; rodzaj nadal jest właściwością krawędzi. Nie łączymy różnych URL żądań według final_url. Każdy Link to osobna skierowana krawędź, także duplikaty i pętle. Utrwalone wyniki nie są modyfikowane.
+
+Stopnie in/out liczą wystąpienia; unikalne stopnie liczą różnych sąsiadów. Pętla zwiększa oba stopnie o jeden. Unikalne relacje to pary źródło–cel niezależnie od kind. Wewnętrzność linku to zapisany is_external względem hosta startowego, nie hosta strony źródłowej. Osiągnięta głębokość obejmuje tylko HTML z final_url; maksymalna odkryta głębokość obejmuje Page także niepobrane. Zasoby mają wyłącznie poziom wizualny min(głębokość źródła + 1), nie zwiększają głębokości HTML. Puste maksima są null.
+
+Projekcja nie pobiera body/description/keywords; title jest ograniczany w SQL do 500 znaków, pełna treść dostępna przez API szczegółów. Linki są odczytywane partiami. Statystyki nie budują listy krawędzi odpowiedzi. Wizualizacja ma limit 5000 węzłów / 20000 wystąpień linków: większa sesja zwraca jawne 413, bez losowego/ukrytego ucięcia, a UI pobiera pełne stats. Limit nie zmienia wyników crawlowania. Reprezentacja stats jest ograniczona istniejącymi budżetami sesji i może być kosztowna dla największych sesji.
+
+Frontend ładuje Cytoscape dopiero przy wejściu na graf. Układ preset rozmieszcza poziomy według zapisanej głębokości, nie wylicza nowej ścieżki zamiast crawlera. ResizeObserver aktualizuje rozmiar, unmount usuwa instancję grafu i anuluje odczyty. Wybór przez canvas lub tekstową listę prowadzi do tego samego panelu; nie pobieramy zdalnych ikon/obrazów ani nie renderujemy zaufanego HTML z witryn.
 
 Migracja `0003_crawler` rozszerza sesję o link_count, stop_reason, wersję crawlera i User-Agent, stronę o final_url oraz dodaje crawl_events z FK CASCADE i indeksem `(session_id, id)`. Zachowuje dane etapu 02; aplikacja nie używa create_all. SQLite 3.35+ jest wymagane do bezpiecznego downgrade kolumn bez odtwarzania tabel nadrzędnych. Sprawdzono migrację w obu kierunkach z istniejącymi stronami/linkami.
 

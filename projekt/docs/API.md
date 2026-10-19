@@ -1,6 +1,6 @@
 # Planowane API REST i SSE
 
-> Status: etapy 01–04 implementują `/health`, CRUD sesji, start/cancel, SSE oraz odczyt stron, metadanych i odnośników. Graf, CSV i eksperymenty pozostają planowane. Aktualny kontrakt działającego API: `/openapi.json`, interaktywna dokumentacja: `/docs`.
+> Status: etapy 01–05 implementują `/health`, CRUD sesji, start/cancel, SSE, odczyt stron/metadanych/odnośników oraz graf i statystyki. CSV i eksperymenty pozostają planowane. Aktualny kontrakt działającego API: `/openapi.json`, interaktywna dokumentacja: `/docs`.
 
 ## Health — wdrożone w etapie 01
 
@@ -120,7 +120,29 @@ Kodowanie: BOM UTF-8/16/32 ma pierwszeństwo przed poprawnym HTTP charset, nast�
 
 Odbiór HTTP, zapis metadanych oraz zapis odnośników są osobnymi krokami. Limit globalnego odkrywania może zachować metadane bez linków bieżącej strony. Błąd/limit samego parsera pozostawia pola treści null oraz zapisany błąd; nie publikuje częściowo przeanalizowanych danych. Starsze wyniki nie są automatycznie ponownie pobierane ani uzupełniane. Filtrowanie, wyszukiwanie i ekran eksploratora należą do etapu 06.
 
-## Pełny kontrakt projektu (częściowo planowany)
+## Graf i statystyki — wdrożone w etapie 05
+
+`GET /api/sessions/{uuid}/graph` zwraca `{session_id,status,nodes,edges,summary,per_depth}`. `GET /api/sessions/{uuid}/stats` zwraca `{session_id,status,summary,per_depth,per_page}`. Oba endpointy działają dla wszystkich statusów, w tym queued/running i częściowych wyników; nie uruchamiają crawlowania ani połączeń z witrynami. Brak sesji → 404, błędny UUID → 422. Każda odpowiedź jest jednym snapshotem zapisanych rekordów, niezależnym od liczników CrawlSession.
+
+Node: `id` (page:UUID lub target:SHA256), `page_id` (UUID lub null dla celu bez Page), `url`, `title` (maks. 500 znaków), `depth`, `fetched`, `is_external`, `http_status`, `error`, `in_degree`, `out_degree`, `unique_in_degree`, `unique_out_degree`. Fetched oznacza zapisany final_url po udanym odbiorze HTML, również gdy późniejsza analiza miała błąd. Pełne title/body/metadane pobiera się przez istniejący endpoint szczegółów strony. Zasób nie jest sztucznie oznaczany jako pobrany.
+
+Edge: `id` (link:UUID), `source`, `target` (identyfikatory w nodes), `target_url`, `kind`, `is_external`, `is_followed`. Zachowuje wszystkie wystąpienia i pętle; każdy target ma węzeł, także zewnętrzny i niepobrany. URL celu odpowiada jego węzłowi; różne final_url nie zmieniają tożsamości zapisanych URL żądań.
+
+Summary:
+
+- node_count, page_count, resource_target_count: wszystkie węzły, rekordy Page, pozostałe cele bez Page.
+- fetched_pages, errored_pages: strony z odebranym HTML, strony z niepustym error (zbiory mogą się nakładać).
+- reached_depth, discovered_depth: maksimum głębokości pobranego HTML i wszystkich Page; null dla pustego zbioru. Poziom wizualny celu zasobu nie zwiększa tych maksimów.
+- link_count, unique_relations: wystąpienia Link i unikalne pary źródło–cel, niezależnie od kind.
+- internal_links, external_links: wystąpienia według zapisanego is_external, względem hosta startowego.
+- root_links, subpage_links: wystąpienia ze źródeł na depth 0 oraz pozostałych Page.
+- root_unique_targets, subpage_unique_targets: liczby różnych celów w każdej grupie (nie sumy per-page).
+
+Per_depth: `{depth,pages,fetched_pages,outgoing_links}`, tylko poziomy rekordów Page, rosnąco. Per_page: `{page_id,url,depth,fetched,in_degree,out_degree,unique_in_degree,unique_out_degree}` w kolejności odkrywania. Stopnie liczą wszystkie rodzaje krawędzi, unikalne stopnie — różnych sąsiadów. Pętla liczy się raz w każdym kierunku.
+
+Graph odrzuca wizualizację powyżej 5000 węzłów lub 20000 linków: 413 `graph_too_large`. Nie zwraca uciętego grafu. Stats nadal obejmuje cały zapisany zbiór. UI automatycznie odczytuje stats po 413; dla pozostałych błędów pokazuje błąd i ponowienie. Widok odświeża użytkownik, nie zmienia się automatycznie podczas interakcji. Search na grafie obejmuje URL i skrócone title; lista wyboru pokazuje do 30 dopasowań z jawną liczbą wszystkich trafień, bez filtrowania metryk.
+
+## Zestawienie endpointów
 
 | Metoda | Ścieżka | Działanie |
 |---|---|---|
@@ -160,12 +182,12 @@ Odbiór HTTP, zapis metadanych oraz zapis odnośników są osobnymi krokami. Lim
 }
 ```
 
-## Odpowiedź grafu (format docelowy)
+## Przykład elementów grafu (pozostałe pola opisane powyżej)
 
 ```json
 {
-  "nodes": [{"id": "page-1", "url": "https://example.com", "depth": 0, "fetched": true}],
-  "edges": [{"id": "link-1", "source": "page-1", "target_url": "https://example.com/about", "kind": "hyperlink", "is_external": false}]
+  "nodes": [{"id": "page:uuid-a", "url": "https://example.com/", "depth": 0, "fetched": true}, {"id": "page:uuid-b", "url": "https://example.com/about", "depth": 1, "fetched": false}],
+  "edges": [{"id": "link:uuid-c", "source": "page:uuid-a", "target": "page:uuid-b", "target_url": "https://example.com/about", "kind": "hyperlink", "is_external": false}]
 }
 ```
 

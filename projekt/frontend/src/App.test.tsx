@@ -53,7 +53,7 @@ describe("bootstrap UI", () => {
     expect(screen.getByRole("heading", { name: "Sesje" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Nowa sesja" })).toBeInTheDocument()
     await userEvent.click(screen.getByRole("link", { name: "Graf witryny" }))
-    expect(screen.getByRole("heading", { name: "Graf witryny" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Graf witryny" })).toBeInTheDocument()
     await userEvent.click(screen.getByRole("link", { name: "Porównania" }))
     expect(screen.getByText(/dostępne w etapie 07/)).toBeInTheDocument()
   })

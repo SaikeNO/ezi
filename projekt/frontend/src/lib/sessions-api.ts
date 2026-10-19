@@ -4,6 +4,7 @@ import type {
   SessionList,
   SessionStatus,
 } from "@/types/sessions";
+import type { GraphRead, GraphStats, PageDetail } from "@/types/graph";
 
 export class ApiError extends Error {
   constructor(
@@ -108,4 +109,13 @@ export const sessionsApi = {
     request<void>(`/api/sessions/${encodeURIComponent(id)}`, {
       method: "DELETE",
     }),
+};
+
+export const graphApi = {
+  graph: (id: string, signal?: AbortSignal) => request<GraphRead>(
+    `/api/sessions/${encodeURIComponent(id)}/graph`, { signal }),
+  stats: (id: string, signal?: AbortSignal) => request<GraphStats>(
+    `/api/sessions/${encodeURIComponent(id)}/stats`, { signal }),
+  page: (id: string, pageId: string, signal?: AbortSignal) => request<PageDetail>(
+    `/api/sessions/${encodeURIComponent(id)}/pages/${encodeURIComponent(pageId)}`, { signal }),
 };

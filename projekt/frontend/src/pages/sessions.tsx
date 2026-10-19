@@ -48,8 +48,7 @@ export function SessionsPage() {
       <p className="eyebrow">ZAPISANE KONFIGURACJE</p>
       <h1 className="mt-3 text-3xl font-semibold">Sesje</h1>
       <p className="mt-4 text-muted-foreground">
-        Utwórz niezależną sesję i zachowaj parametry analizy. Uruchamianie
-        crawlera pojawi się w etapie 03.
+        Utwórz sesję, uruchom crawler i przejrzyj graf zapisanych wyników.
       </p>
       <section
         className="mt-8 rounded-2xl border bg-card p-6 sm:p-8"
@@ -253,6 +252,7 @@ export function SessionDetail() {
         disabled={editing}
         onChange={(data) => setState({ kind: "ready", data })}
       />
+      <Link to={"/graph/" + id} className="mt-6 inline-block rounded-lg border bg-white px-4 py-3 text-sm font-medium text-teal-800 hover:bg-teal-50">Otwórz graf sesji</Link>
       {item.error && (
         <p role="alert" className="mt-4 text-red-800">
           {item.error}
