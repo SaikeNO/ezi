@@ -46,6 +46,8 @@ Implementuj etapy **kolejno**. Po każdym etapie: wykonaj testy, popraw wykryte 
 
 ## Etap 06 — Data Explorer & CSV
 
+**Status:** ukończony 2026-10-19. Eksplorator, filtrowane API i bezpieczny CSV: `docs/PHASE_06.md`.
+
 **Zadania:** tabela z filtrowaniem i wyszukiwaniem; konfiguracja eksportowanych pól (`URL`, `Keyword`, `Title`, `Description`, `Body` itd.), separatora i BOM; poprawne quoting CSV; zabezpieczenie przed formula/CSV injection; eksport wybranej sesji.
 
 **Definition of Done:** plik CSV odczytuje się poprawnie w arkuszu, znaki polskie, przecinki i nowe linie zachowują się prawidłowo; testy eksportu przechodzą.

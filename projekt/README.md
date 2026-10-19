@@ -1,6 +1,6 @@
 # WebCrawler Studio
 
-Polskojęzyczna aplikacja do badania struktury WWW. **Etap 05 ukończony:** rzeczywisty crawler BFS/DFS, sesje SQLite, ochrona SSRF/robots, metadane HTML oraz interaktywny graf Cytoscape.js i statystyki zapisanych stron/linków. Eksplorator tabelaryczny i CSV pozostają w kolejnych etapach.
+Polskojęzyczna aplikacja do badania struktury WWW. **Etap 06 ukończony:** crawler BFS/DFS, sesje SQLite, ochrona SSRF/robots, metadane HTML, interaktywny graf oraz eksplorator danych i konfigurowalny, bezpieczny CSV. Porównania i raporty pozostają w etapach 07–08.
 
 ## Uruchomienie w Dockerze
 
@@ -72,7 +72,15 @@ Kliknij węzeł lub wyszukaj URL/tytuł i wybierz wynik z listy, aby odczytać m
 
 Wizualizacja obsługuje do 5000 węzłów i 20000 wystąpień linków. Większy graf daje jawny komunikat oraz pełne statystyki, bez ukrytego ucinania danych. API: `GET /api/sessions/{id}/graph` i `/stats`; [kontrakt](docs/API.md), [semantyka](docs/ARCHITECTURE.md), [raport etapu 05](docs/PHASE_05.md). Nie rozpoczęto eksportu/eksploratora etapu 06.
 
-## Zmienne środowiska
+## Dane i CSV (etap 06)
+
+W menu **Dane i CSV** wybierz sesję albo użyj **Dane i eksport CSV** w jej szczegółach. Tabela pokazuje zapisane URL, Title, Keyword, Description, poziom i HTTP. Szczegóły odczytują pełne metadane/body. Filtruj po fragmencie URL/metadanych (także polskie litery, bez body), głębokości, pobranym HTML, błędzie i statusie HTTP; wybierz **Zastosuj filtry**. **Odśwież dane** pobiera nowszy zapis, a paginacja obejmuje po 10 stron.
+
+W **Eksport CSV** zaznacz pola w żądanej kolejności, wybierz przecinek/średnik/tabulator i opcjonalny BOM UTF-8. Domyślnie pobierane są URL oraz Keyword z BOM. Eksport obejmuje **wszystkie dopasowania zastosowanych filtrów**, nie tylko widoczne 10 rekordów ani niezastosowany tekst formularza. CSV zachowuje polskie litery, cudzysłowy i nowe linie; komórki przypominające formuły dostają prefiks apostrofu. Puste komórki nie odróżniają null od pustego tekstu. Baza pozostaje bez zmian.
+
+W arkuszu importuj jako UTF-8 z wybranym separatorem; BOM ułatwia rozpoznanie kodowania. Automatyczny separator zależy od ustawień regionalnych. Duże eksporty mają jawny limit 64 MiB i budżet przygotowania 30 s sprawdzany między rekordami — zawęź filtry lub ogranicz pola, gdy otrzymasz komunikat o limicie. Pobieranie można anulować; błędy nie są zapisywane jako CSV. [Kontrakt API](docs/API.md), [raport i lista plików etapu 06](docs/PHASE_06.md).
+
+## Konfiguracja środowiska
 
 Wspólny plik `projekt/.env` czytają backend, Vite i Compose. Zmiany wymagają ponownego uruchomienia usług.
 
@@ -108,7 +116,7 @@ npm run test:e2e
 
 Playwright sam uruchamia rzeczywisty backend, kontrolowaną witrynę HTTP i frontend na osobnych portach **18000/15173**, z osobną bazą `projekt/data/e2e.db` i konfiguracją CORS. Testowy backend jest wstrzykiwany wyłącznie w `tests/e2e_app.py`; obraz produkcyjny nie zawiera katalogu tests ani takiej opcji środowiskowej. Nie wymaga zatrzymania Compose. Porty testowe muszą być wolne. Testy obejmują odczyt prawdziwego statusu SQLite, ponowienie, nawigację, odświeżenie podstrony, widok mobilny i niedostępność API. Testy obejmują też CRUD sesji, rzeczywiste pobieranie z witryny fixture, limit stron, zachowanie wyników po odświeżeniu i anulowanie. Deterministyczne testy nie zależą od zmiennych publicznych witryn.
 
-Wyniki i lista plików etapu 05: [raport](docs/PHASE_05.md). Wcześniejsze kontrole: [etap 04](docs/PHASE_04.md), [etap 03](docs/PHASE_03.md), [etap 02](docs/PHASE_02.md), [etap 01](docs/PHASE_01.md).
+Wyniki i lista plików etapu 06: [raport](docs/PHASE_06.md). Wcześniejsze kontrole: [etap 05](docs/PHASE_05.md), [etap 04](docs/PHASE_04.md), [etap 03](docs/PHASE_03.md), [etap 02](docs/PHASE_02.md), [etap 01](docs/PHASE_01.md).
 
 ## Struktura
 
@@ -130,6 +138,6 @@ Zależności backendu przypina `uv.lock`; eksport produkcyjny `requirements.lock
 - [API](docs/API.md)
 - [Wymagania laboratorium](docs/LAB_REQUIREMENTS.md)
 
-Ekstrakcja i graf są wdrożone. Eksplorator tabelaryczny, CSV, porównania i raporty należą do etapów 06–08. Cytoscape.js jest używany w widoku grafu; Recharts pozostaje do późniejszych analiz. Nawigacja porównań jawnie wskazuje planowany etap 07.
+Ekstrakcja, graf, eksplorator i CSV są wdrożone. Porównania i raporty należą do etapów 07–08. Cytoscape.js jest używany w widoku grafu; Recharts pozostaje do późniejszych analiz. Nawigacja porównań jawnie wskazuje planowany etap 07.
 
 Konfiguracja UI oparta na oficjalnych instrukcjach [Tailwind + Vite](https://tailwindcss.com/docs/installation/using-vite) i [shadcn/ui + Vite](https://ui.shadcn.com/docs/installation/vite). Button wygenerowano CLI shadcn, następnie dopasowano importy do lokalnego `cn` i `@radix-ui/react-slot`.

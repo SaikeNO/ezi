@@ -8,9 +8,11 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, defer, selectinload
+from starlette.background import BackgroundTask
 
 from app.crawler.manager import TERMINAL
 from app.database import session_scope
+from app.explorer import PageFilters, Separator, export_fields, page_filters, prepare_csv
 from app.graph import MAX_GRAPH_EDGES, MAX_GRAPH_NODES, GraphRead, GraphStats, projection
 from app.models import CrawlConfig, CrawlEvent, CrawlSession, Link, Page, SessionStatus
 from app.schemas import (
@@ -43,6 +45,7 @@ def get_db(request: Request) -> Iterator[Session]:
 
 
 Database = Annotated[Session, Depends(get_db)]
+Filters = Annotated[PageFilters, Depends(page_filters)]
 
 
 def find_session(db: Session, session_id: UUID) -> CrawlSession:
@@ -128,16 +131,18 @@ def find_page(db: Session, session_id: UUID, page_id: UUID) -> Page:
 def list_pages(
     session_id: UUID,
     db: Database,
+    filters: Filters,
     offset: Annotated[int, Query(ge=0, le=2147483647)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> PageList:
+    db.connection().exec_driver_sql("BEGIN")
     find_session(db, session_id)
-    filters = [Page.session_id == str(session_id)]
-    total = db.scalar(select(func.count()).select_from(Page).where(*filters)) or 0
+    predicates = filters.predicates(str(session_id))
+    total = db.scalar(select(func.count()).select_from(Page).where(*predicates)) or 0
     rows = db.scalars(
         select(Page)
         .options(defer(Page.body))
-        .where(*filters)
+        .where(*predicates)
         .order_by(Page.discovery_order, Page.id)
         .offset(offset)
         .limit(limit)
@@ -147,6 +152,51 @@ def list_pages(
         total=total,
         offset=offset,
         limit=limit,
+    )
+
+
+@router.get(
+    "/{session_id}/export",
+    response_class=StreamingResponse,
+    responses={
+        200: {"content": {"text/csv": {"schema": {"type": "string", "format": "binary"}}}},
+        413: {"model": ErrorResponse},
+    },
+)
+def export_pages(
+    session_id: UUID,
+    db: Database,
+    filters: Filters,
+    fields: Annotated[list[str], Depends(export_fields)],
+    separator: Separator = Separator.COMMA,
+    bom: bool = True,
+) -> StreamingResponse:
+    db.connection().exec_driver_sql("BEGIN")
+    find_session(db, session_id)
+    output, size = prepare_csv(db, str(session_id), filters, fields, separator, bom)
+    try:
+        db.rollback()  # Release snapshot before slow network download.
+    except BaseException:
+        output.close()
+        raise
+
+    def chunks():
+        try:
+            while block := output.read(65536):
+                yield block
+        finally:
+            output.close()
+
+    return StreamingResponse(
+        chunks(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="crawl-{session_id}.csv"',
+            "Content-Length": str(size),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+        background=BackgroundTask(output.close),
     )
 
 

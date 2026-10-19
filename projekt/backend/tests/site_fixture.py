@@ -22,6 +22,15 @@ GRAPH = {
     "/a11": "A11",
     "/b1": "B1",
 }
+GRAPH["/csv"] = (
+    "<title>Zażółć, &quot;gęślą&quot;; jaźń</title>"
+    '<meta name="keywords" content="=1+1"><meta name="description" content="Opis &amp; dane">'
+    "<body><p>Treść polskiej strony.</p>"
+    + "".join(f'<a href="/csv/{index}">Wiersz {index}</a>' for index in range(12))
+    + "</body>"
+)
+for index in range(12):
+    GRAPH[f"/csv/{index}"] = f"<title>Wiersz {index}</title><body>Podstrona {index}</body>"
 
 
 class LocalFixtureBackend(httpcore.AsyncNetworkBackend):

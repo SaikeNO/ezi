@@ -23,6 +23,12 @@ def build_engine(database_url: str) -> Engine:
 
     @event.listens_for(engine, "connect")
     def configure_sqlite(dbapi_connection, _connection_record) -> None:
+        dbapi_connection.create_function(
+            "casefold",
+            1,
+            lambda value: value.casefold() if isinstance(value, str) else "",
+            deterministic=True,
+        )
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()

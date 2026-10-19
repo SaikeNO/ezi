@@ -16,11 +16,11 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}, asBlob = false, timeoutMs = 5000): Promise<T> {
   const base = (
     import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"
   ).replace(/\/$/, "");
-  const timeout = AbortSignal.timeout(5000);
+  const timeout = AbortSignal.timeout(timeoutMs);
   let response: Response;
   try {
     response = await fetch(`${base}${path}`, {
@@ -64,6 +64,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   try {
+    if (asBlob) return await response.blob() as T;
     return (await response.json()) as T;
   } catch {
     throw new ApiError(response.status, "Nieprawidłowa odpowiedź serwera.");

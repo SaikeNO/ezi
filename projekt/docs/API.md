@@ -1,6 +1,6 @@
 # Planowane API REST i SSE
 
-> Status: etapy 01–05 implementują `/health`, CRUD sesji, start/cancel, SSE, odczyt stron/metadanych/odnośników oraz graf i statystyki. CSV i eksperymenty pozostają planowane. Aktualny kontrakt działającego API: `/openapi.json`, interaktywna dokumentacja: `/docs`.
+> Status: etapy 01–06 implementują `/health`, CRUD sesji, start/cancel, SSE, strony/metadane/odnośniki, graf/statystyki oraz filtry i eksport CSV. Eksperymenty i porównania pozostają planowane. Aktualny kontrakt działającego API: `/openapi.json`, interaktywna dokumentacja: `/docs`.
 
 ## Health — wdrożone w etapie 01
 
@@ -118,7 +118,7 @@ Ekstrakcja zapisuje pierwszy title i pierwsze meta o nazwie description/keywords
 
 Kodowanie: BOM UTF-8/16/32 ma pierwszeństwo przed poprawnym HTTP charset, następnie deklaracja HTML rozpoznana przez BeautifulSoup w początkowych maksymalnie 4096 bajtach, domyślnie UTF-8. Nieznane/nieobsługiwane kodowanie jest pomijane; błędne sekwencje zastępuje U+FFFD. `encoding` po analizie to kanoniczna nazwa użytego kodeka, np. cp1250. Brak zgadywania statystycznego. `content_type` zawiera MIME bez parametrów, `http_status` status odebranej strony. Akceptowane dokumenty: HTML/XHTML 2xx; pozostałe odpowiedzi zachowują dotychczasową obsługę błędów strony.
 
-Odbiór HTTP, zapis metadanych oraz zapis odnośników są osobnymi krokami. Limit globalnego odkrywania może zachować metadane bez linków bieżącej strony. Błąd/limit samego parsera pozostawia pola treści null oraz zapisany błąd; nie publikuje częściowo przeanalizowanych danych. Starsze wyniki nie są automatycznie ponownie pobierane ani uzupełniane. Filtrowanie, wyszukiwanie i ekran eksploratora należą do etapu 06.
+Odbiór HTTP, zapis metadanych oraz zapis odnośników są osobnymi krokami. Limit globalnego odkrywania może zachować metadane bez linków bieżącej strony. Błąd/limit samego parsera pozostawia pola treści null oraz zapisany błąd; nie publikuje częściowo przeanalizowanych danych. Starsze wyniki nie są automatycznie ponownie pobierane ani uzupełniane. Etap 06 dodaje filtrowanie i ekran eksploratora opisany poniżej.
 
 ## Graf i statystyki — wdrożone w etapie 05
 
@@ -191,9 +191,33 @@ Graph odrzuca wizualizację powyżej 5000 węzłów lub 20000 linków: 413 `grap
 }
 ```
 
-## Eksport CSV
+## Eksplorator i eksport CSV — wdrożone w etapie 06
 
-`GET /api/sessions/{id}/export?fields=url,keywords,title&separator=comma` (przykładowa konwencja). Backend powinien walidować nazwy pól i separator, zapewniać poprawny `Content-Disposition`, UTF-8 i ochronę przed CSV injection.
+`GET /api/sessions/{uuid}/pages` zachowuje kontrakt etapu 04 i dodaje wspólne z eksportem filtry:
+
+| Parametr | Wartości / znaczenie |
+|---|---|
+| q | Do 200 znaków; whitespace na brzegach usuwany. Dosłowny fragment normalized_url, final_url, title, description lub keywords; Unicode casefold, bez body. Pusty tekst nie filtruje. %/_ nie są wildcardami. |
+| depth | Opcjonalna liczba 0–21 (kandydat może być o poziom głębszy od limitu pobierania 20). |
+| fetched | Opcjonalny boolean: obecność final_url po odbiorze HTML, niezależna od późniejszego błędu analizy. |
+| has_error | Opcjonalny boolean: error jest różne od null. |
+| http_status | Opcjonalny dokładny status 100–599. |
+
+Filtry łączą się przez AND, pola tekstowe wewnątrz q przez OR. Count/items odnoszą się do jednego snapshotu. Nieprawidłowe typy/zakresy → 422. offset/limit działają wyłącznie na liście stron; eksport obejmuje wszystkie dopasowania w discovery_order/id, bez paginacji. Wyniki nadal obejmują Page, a nie obrazy/CSS/JS bez Page.
+
+`GET /api/sessions/{uuid}/export?fields=url,keywords,title&separator=semicolon&bom=true`:
+
+- fields: rozdzielona przecinkami lista w wybranej kolejności, domyślnie url,keywords. Bez pustych/nieznanych/powtórzonych pól; błąd → 422 invalid_export_fields. Parametr do 300 znaków.
+- Dozwolone pola → nagłówki: url → URL (normalized_url), keywords → Keyword, title → Title, description → Description, body → Body, original_url → Original URL, final_url → Final URL, depth → Depth, http_status → HTTP Status, content_type → Content-Type, encoding → Encoding, error → Error.
+- separator: comma (domyślny), semicolon albo tab. Inna wartość → 422.
+- bom: boolean, domyślnie true. Zawsze UTF-8; true dodaje EF BB BF dokładnie raz przed nagłówkiem.
+- Wspiera q/depth/fetched/has_error/http_status jak lista stron. Brak sesji → 404, błędny UUID → 422. Wszystkie statusy sesji dozwolone; pusty wynik to plik z nagłówkiem.
+- HTTP 200: text/csv; charset=utf-8, Content-Disposition attachment z nazwą crawl-{uuid}.csv, Content-Length, Cache-Control no-store, X-Content-Type-Options nosniff. Błąd zwraca normalny JSON błędu, nie plik CSV.
+- Limit 64 MiB (także BOM/nagłówek) → 413 export_too_large; budżet przygotowania 30 s sprawdzany między rekordami → 503 export_timeout. Plik przygotowywany w całości przed 200; nie ma cichego ucinania.
+
+CSV używa CRLF między rekordami, standardowego quoting i podwojonych cudzysłowów. Wewnętrzne przecinki/średniki/tabulatory i nowe linie pozostają w komórce. Null i pusty tekst → pusta komórka. Każda niepusta wartość o znaczącym prefiksie =, +, -, @ lub ich wariancie pełnej szerokości otrzymuje apostrof przed całą oryginalną treścią; sprawdzenie pomija wiodące whitespace/znaki sterujące/formata Unicode. Wiodące TAB/CR/LF również dostają apostrof. Zabezpieczenie jest zawsze aktywne i może być widoczne w programie odczytującym CSV jako zwykły tekst. Nie zmienia źródłowych danych w bazie.
+
+Przykład laboratoryjny: export?fields=url,keywords&separator=semicolon&bom=true. W arkuszu wybierz import UTF-8 oraz ten sam separator; automatyczne rozpoznawanie separatora zależy od programu i ustawień regionalnych. Interfejs /data/{uuid} pozwala wybrać pola, separator i BOM oraz pobrać wszystkie wyniki zastosowanych filtrów.
 
 ## Błędy
 

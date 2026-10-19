@@ -1,8 +1,18 @@
 # Architektura i semantyka crawlera
 
-## Stan po etapie 05
+## Stan po etapie 06
 
-Działa monorepo, CRUD sesji i rzeczywisty crawler z kolejką BFS/stosem DFS, start/cancel, zapisanymi częściowymi wynikami i trwałym dziennikiem SSE. Interfejs pokazuje liczniki wyłącznie z API i pozwala uruchamiać/anulować sesje. Etap 04 dodał ekstrakcję title/description/keywords/body i stronicowane API stron/linków. Etap 05 dodaje skierowany graf Cytoscape.js, wyszukiwanie/wybór węzła, skalowanie/przesuwanie, szczegóły metadanych i statystyki wyliczane ze snapshotu bazy. Eksplorator tabelaryczny, CSV i porównania pozostają w dalszych etapach.
+Działa monorepo, CRUD sesji i rzeczywisty crawler z kolejką BFS/stosem DFS, start/cancel, zapisanymi częściowymi wynikami i trwałym dziennikiem SSE. Etapy 04–05 dodały metadane HTML, graf Cytoscape.js i statystyki ze snapshotu bazy. Etap 06 dodaje tabelaryczny eksplorator oraz konfigurowalny, filtrowany eksport CSV. Interfejs korzysta wyłącznie z danych API. Porównania i raporty laboratoryjne pozostają w etapach 07–08.
+
+### Eksplorator i CSV
+
+Lista Page oraz eksport używają jednego PageFilters: dosłowny fragment URL/metadanych (bez body), dokładny depth/HTTP status, fetched i has_error. SQLite otrzymuje deterministyczną funkcję casefold na każdym połączeniu, dlatego wyszukiwanie nie ogranicza się do ASCII i obsługuje m.in. ŁÓDŹ/łódź. Zapytania są parametryzowane; % i _ są zwykłymi znakami. Lista wykonuje count i paginację w jednym jawnym snapshotcie, a CSV eksportuje wszystkie pasujące rekordy w kolejności discovery_order/id. Osobne żądania podczas pracy crawlera mogą widzieć różne stany.
+
+Eksport czyta wyłącznie wybrane kolumny, po jednym rekordzie; csv.writer odpowiada za quoting, podwajanie cudzysłowów i CRLF. Kodowanie UTF-8 z opcjonalnym BOM, separatory comma/semicolon/tab, jawne nagłówki i kolejność pól. Null i pusty string mają tę samą reprezentację pustej komórki CSV; baza pozostaje bez zmian. Podejrzane prefiksy formuł są zabezpieczane apostrofem przed oryginalną zawartością, również po whitespace/znakach sterujących/formatach Unicode. Nie ma przełącznika wyłączającego zabezpieczenie.
+
+Plik jest przygotowywany przed wysłaniem nagłówków HTTP, w SpooledTemporaryFile (do 1 MiB RAM, następnie dysk). Limit 64 MiB i budżet 30 s sprawdzany między rekordami dają odpowiednio 413/503 zamiast pozornie poprawnego, uciętego pliku. Snapshot bazy jest zwalniany przed przesyłaniem pliku po 64 KiB. Generator i BackgroundTask zamykają plik po pobraniu/przerwaniu; wyjątki przygotowania także sprzątają zasoby. Body pojedynczego rekordu nadal podlega limitowi odpowiedzi crawlera; nie jest ucinane do CSV.
+
+Widok /data wybiera sesję, /data/{id} ma serwerowe filtrowanie, tabelę 10 rekordów, szczegóły z pełnym body i ustawienia pobierania. Formularz filtrów wymaga Zastosuj; CSV używa zastosowanych filtrów, nie niezapisanej treści formularza i nie tylko bieżącej strony. Pola eksportu zachowują kolejność zaznaczenia. Pobieranie przez fetch sprawdza status błędu przed zapisem, ogranicza plik do limitu serwera, daje anulowanie, sprząta object URL oraz anuluje żądania po opuszczeniu widoku. Nie powstaje kopia wyników w localStorage.
 
 ### Projekcja grafu i statystyk
 
