@@ -3,6 +3,7 @@ from enum import StrEnum
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Column,
@@ -124,6 +125,10 @@ class CrawlSession(Base):
     fetched_count: Mapped[int] = mapped_column(Integer, default=0)
     error_count: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text)
+    stop_reason: Mapped[str | None] = mapped_column(String(40))
+    link_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    crawler_version: Mapped[str | None] = mapped_column(String(30))
+    user_agent: Mapped[str | None] = mapped_column(String(255))
     config: Mapped["CrawlConfig"] = relationship(
         back_populates="session",
         cascade="all, delete-orphan",
@@ -198,6 +203,7 @@ class Page(Base):
     discovery_order: Mapped[int] = mapped_column(Integer)
     fetch_order: Mapped[int | None] = mapped_column(Integer)
     http_status: Mapped[int | None] = mapped_column(Integer)
+    final_url: Mapped[str | None] = mapped_column(Text)
     content_type: Mapped[str | None] = mapped_column(String(255))
     encoding: Mapped[str | None] = mapped_column(String(100))
     title: Mapped[str | None] = mapped_column(Text)
@@ -255,3 +261,13 @@ class Experiment(Base):
     sessions: Mapped[list[CrawlSession]] = relationship(
         secondary=experiment_sessions, back_populates="experiments", passive_deletes=True
     )
+
+
+class CrawlEvent(Base):
+    __tablename__ = "crawl_events"
+    __table_args__ = (Index("ix_crawl_events_session_id_id", "session_id", "id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(40))
+    data: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)

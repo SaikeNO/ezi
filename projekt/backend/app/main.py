@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api import router
 from app.core.config import Settings
+from app.crawler.manager import CrawlManager, TransportFactory
 from app.database import build_engine
 from app.errors import install_error_handlers
 
@@ -22,25 +23,32 @@ class HealthResponse(BaseModel):
     database: Literal["ok", "unavailable"]
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, *, transport_factory: TransportFactory | None = None
+) -> FastAPI:
     settings = settings or Settings()
     engine = build_engine(settings.database_url)
+
+    manager = CrawlManager(engine, transport_factory)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         try:
+            manager.startup()
             yield
         finally:
+            await manager.shutdown()
             engine.dispose()
 
-    application = FastAPI(title="WebCrawler Studio", version="0.2.0", lifespan=lifespan)
+    application = FastAPI(title="WebCrawler Studio", version="0.3.0", lifespan=lifespan)
     application.state.engine = engine
+    application.state.crawler = manager
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "Last-Event-ID"],
         expose_headers=["Location"],
     )
 

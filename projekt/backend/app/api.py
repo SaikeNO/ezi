@@ -1,13 +1,17 @@
+import asyncio
+import json
 from collections.abc import Iterator
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.crawler.manager import TERMINAL
 from app.database import session_scope
-from app.models import CrawlConfig, CrawlSession, SessionStatus
+from app.models import CrawlConfig, CrawlEvent, CrawlSession, SessionStatus
 from app.schemas import ErrorResponse, SessionCreate, SessionList, SessionRead, SessionUpdate
 
 router = APIRouter(
@@ -86,6 +90,7 @@ def read_session(session_id: UUID, db: Database) -> SessionRead:
 
 @router.patch("/{session_id}", response_model=SessionRead)
 def update_session(session_id: UUID, payload: SessionUpdate, db: Database) -> SessionRead:
+    db.connection().exec_driver_sql("BEGIN IMMEDIATE")
     crawl = find_session(db, session_id)
     if crawl.status != SessionStatus.QUEUED:
         raise HTTPException(
@@ -107,6 +112,7 @@ def update_session(session_id: UUID, payload: SessionUpdate, db: Database) -> Se
 
 @router.delete("/{session_id}", status_code=204)
 def delete_session(session_id: UUID, db: Database) -> Response:
+    db.connection().exec_driver_sql("BEGIN IMMEDIATE")
     crawl = find_session(db, session_id)
     if crawl.status == SessionStatus.RUNNING:
         raise HTTPException(
@@ -116,3 +122,61 @@ def delete_session(session_id: UUID, db: Database) -> Response:
     db.delete(crawl)
     db.commit()
     return Response(status_code=204)
+
+
+@router.post("/{session_id}/start", response_model=SessionRead)
+async def start_session(session_id: UUID, request: Request) -> SessionRead:
+    return await request.app.state.crawler.start(str(session_id))
+
+
+@router.post("/{session_id}/cancel", response_model=SessionRead)
+async def cancel_session(session_id: UUID, request: Request) -> SessionRead:
+    return await request.app.state.crawler.cancel(str(session_id))
+
+
+@router.get("/{session_id}/events", response_class=StreamingResponse)
+async def session_events(
+    session_id: UUID,
+    request: Request,
+    after: Annotated[int, Query(ge=0, le=9223372036854775807)] = 0,
+    last_event_id: Annotated[int | None, Header(ge=0, le=9223372036854775807)] = None,
+) -> StreamingResponse:
+    with Session(request.app.state.engine) as db:
+        find_session(db, session_id)
+
+    async def stream():
+        cursor = max(after, last_event_id or 0)
+        heartbeat = asyncio.get_running_loop().time()
+        yield "retry: 2000\n\n"
+        while not await request.is_disconnected():
+            with Session(request.app.state.engine) as db:
+                crawl = db.get(CrawlSession, str(session_id))
+                if crawl is None:
+                    return
+                terminal = crawl.status in TERMINAL
+                events = [
+                    (event.id, event.kind, event.data)
+                    for event in db.scalars(
+                        select(CrawlEvent)
+                        .where(CrawlEvent.session_id == str(session_id), CrawlEvent.id > cursor)
+                        .order_by(CrawlEvent.id)
+                        .limit(200)
+                    )
+                ]
+            for event_id, kind, data in events:
+                cursor = event_id
+                payload = json.dumps(data, ensure_ascii=False)
+                yield f"id: {event_id}\nevent: {kind}\ndata: {payload}\n\n"
+            if terminal and not events:
+                return
+            now = asyncio.get_running_loop().time()
+            if now - heartbeat >= 15:
+                yield ": heartbeat\n\n"
+                heartbeat = now
+            await asyncio.sleep(0 if events else 0.2)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

@@ -28,7 +28,7 @@ def test_migrations_round_trip_and_metadata(database):
         assert set(inspect(connection).get_table_names()) == set(Base.metadata.tables) | {
             "alembic_version"
         }
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0002_sessions"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0003_crawler"
         assert {index["name"] for index in inspect(connection).get_indexes("sessions")} == {
             "ix_sessions_created_at_id",
             "ix_sessions_status_created_at",

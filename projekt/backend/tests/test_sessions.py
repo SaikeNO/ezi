@@ -3,7 +3,6 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.main import create_app
@@ -276,14 +275,6 @@ def test_mutation_cors(client, method):
     )
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
-
-
-def test_no_crawler_endpoints_yet(client):
-    item = create(client)
-    assert client.post(f"/api/sessions/{item['id']}/start").status_code == 404
-    assert client.post(f"/api/sessions/{item['id']}/cancel").status_code == 404
-    with Session(client.app.state.engine) as db:
-        assert db.scalar(select(CrawlSession)).status == SessionStatus.QUEUED
 
 
 def test_maximum_config_boundaries(client):

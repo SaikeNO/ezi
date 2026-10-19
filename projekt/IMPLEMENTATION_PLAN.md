@@ -22,6 +22,8 @@ Implementuj etapy **kolejno**. Po każdym etapie: wykonaj testy, popraw wykryte 
 
 ## Etap 03 — Crawler Engine
 
+**Status:** ukończony 2026-10-19. Wyniki i ograniczenia w `docs/PHASE_03.md`.
+
 **Zadania:** BFS (FIFO), DFS (LIFO); ograniczenia głębokości, liczby stron, czasu i opóźnień; zakres `server`/`web`; przełącznik `follow_external_urls`; `process_one_page`; wybór `hyperlinks`, `images_and_hyperlinks`, `all_links`; URL normalization, canonicalizacja fragmentów, deduplikacja, obsługa cykli; `robots.txt`; ochrona SSRF (DNS, przekierowania, adresy prywatne); start/anulowanie, zdarzenia postępu, utrwalanie częściowych wyników.
 
 **Definition of Done:** kontrolowana witryna testowa daje zgodne z oczekiwaniami wyniki BFS/DFS; anulowanie działa; niebezpieczne docelowe adresy są blokowane; błędy pojedynczych stron nie przerywają całej sesji.

@@ -639,12 +639,13 @@ wheels = [
 
 [[package]]
 name = "webcrawler-studio-backend"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "beautifulsoup4" },
     { name = "fastapi" },
+    { name = "httpcore" },
     { name = "httpx" },
     { name = "pydantic-settings" },
     { name = "sqlalchemy" },
@@ -662,6 +663,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.15,<2" },
     { name = "beautifulsoup4", specifier = ">=4.13,<5" },
     { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "httpcore", specifier = "==1.0.9" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "pydantic-settings", specifier = ">=2.8,<3" },
     { name = "sqlalchemy", specifier = ">=2.0,<3" },

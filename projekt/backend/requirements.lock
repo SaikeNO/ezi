@@ -25,7 +25,9 @@ h11==0.16.0
     #   httpcore
     #   uvicorn
 httpcore==1.0.9
-    # via httpx
+    # via
+    #   httpx
+    #   webcrawler-studio-backend
 httpx==0.28.1
     # via webcrawler-studio-backend
 idna==3.20

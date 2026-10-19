@@ -1,65 +1,24 @@
-import ipaddress
-import re
 from datetime import datetime
 from typing import Annotated, Self
-from urllib.parse import urlsplit
 from uuid import UUID
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    HttpUrl,
-    TypeAdapter,
     field_validator,
     model_validator,
 )
 
+from app.crawler.urls import CrawlError, validate_destination
 from app.models import LinkSelection, Scope, SessionStatus, Strategy
-
-http_url = TypeAdapter(HttpUrl)
 
 
 def validate_start_url(value: str) -> str:
-    if len(value) > 2048 or any(
-        char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value
-    ):
-        raise ValueError(
-            "URL must contain at most 2048 characters and no whitespace/control characters"
-        )
-    parsed = urlsplit(value)
-    if parsed.username is not None or parsed.password is not None or "\\" in value:
-        raise ValueError("URL credentials and backslashes are forbidden")
-    url = http_url.validate_python(value)
-    host = (url.host or "").strip("[]").rstrip(".").lower()
     try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        if (
-            len(host) > 253
-            or "." not in host
-            or any(
-                host == suffix or host.endswith("." + suffix)
-                for suffix in ("localhost", "local", "internal", "lan", "home")
-            )
-            or not all(
-                re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
-                for label in host.split(".")
-            )
-        ):
-            raise ValueError("URL must use a valid public hostname") from None
-    else:
-        if (
-            not address.is_global
-            or address.is_multicast
-            or address.is_reserved
-            or getattr(address, "is_site_local", False)
-            or getattr(address, "scope_id", None) is not None
-        ):
-            raise ValueError("URL must not use a private or reserved IP address")
-    if url.port not in {80, 443}:
-        raise ValueError("Only ports 80 and 443 are supported")
-    return str(url).split("#", 1)[0]
+        return validate_destination(value)
+    except CrawlError as error:
+        raise ValueError(str(error)) from error
 
 
 class InputModel(BaseModel):
@@ -128,6 +87,10 @@ class SessionRead(BaseModel):
     error_count: int
     error: str | None
     config: CrawlConfigInput
+    stop_reason: str | None
+    link_count: int
+    crawler_version: str | None
+    user_agent: str | None
 
 
 class SessionList(BaseModel):

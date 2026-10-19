@@ -36,6 +36,10 @@ export interface CrawlSession extends SessionInput {
   fetched_count: number;
   error_count: number;
   error: string | null;
+  link_count: number;
+  stop_reason: string | null;
+  crawler_version: string | null;
+  user_agent: string | null;
 }
 export interface SessionList {
   items: CrawlSession[];

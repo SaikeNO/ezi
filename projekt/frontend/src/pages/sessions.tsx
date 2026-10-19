@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { CrawlControls } from "@/components/crawl-controls";
 import { SessionForm } from "@/components/session-form";
 import { sessionsApi } from "@/lib/sessions-api";
 import {
@@ -247,10 +248,11 @@ export function SessionDetail() {
       <p className="mt-2 break-all text-xs text-muted-foreground">
         ID: {item.id}
       </p>
-      <p className="mt-6 rounded-lg bg-teal-50 p-4 text-sm text-teal-900">
-        Sesja jest zapisana w bazie. Uruchamianie pobierania stron będzie
-        dostępne w etapie 03.
-      </p>
+      <CrawlControls
+        session={item}
+        disabled={editing}
+        onChange={(data) => setState({ kind: "ready", data })}
+      />
       {item.error && (
         <p role="alert" className="mt-4 text-red-800">
           {item.error}

@@ -1,6 +1,6 @@
 # WebCrawler Studio
 
-Polskojęzyczna aplikacja do badania struktury WWW. **Etap 02 ukończony:** działający szkielet aplikacji oraz zapisywanie, listowanie, odczyt, edycja i usuwanie sesji z konfiguracją w SQLite. Funkcje crawlowania nie są jeszcze dostępne.
+Polskojęzyczna aplikacja do badania struktury WWW. **Etap 03 ukończony:** sesje SQLite, rzeczywisty crawler BFS/DFS, start/anulowanie, ochrona SSRF, robots.txt, limity i trwały postęp SSE. Metadane treści i analiza grafu pozostają w kolejnych etapach.
 
 ## Uruchomienie w Dockerze
 
@@ -31,7 +31,7 @@ Z `projekt/`, skopiuj `.env.example` do `.env` jak wyżej. Terminal backendu:
 cd backend
 uv sync --locked
 uv run alembic upgrade head
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --timeout-graceful-shutdown 5
 ```
 
 Drugi terminal, również startując z `projekt/`:
@@ -42,15 +42,21 @@ npm ci
 npm run dev
 ```
 
-Wejdź na `http://localhost:5173`. Przerwij procesy przez Ctrl+C. Lokalne SQLite: `projekt/data/webcrawler.db`; ścieżki względne są liczone od katalogu `projekt/`, niezależnie od bieżącego katalogu procesu. API nie tworzy tabel domenowych przy starcie — schemat obsługuje Alembic. Migracja `0002_sessions` tworzy tabele sesji, konfiguracji, stron, linków, eksperymentów i ich członkostw. Po aktualizacji z etapu 01 wykonaj ponownie `uv run alembic upgrade head`; istniejący plik SQLite i wolumen pozostają zachowane.
+Wejdź na `http://localhost:5173`. Przerwij procesy przez Ctrl+C. Lokalne SQLite: `projekt/data/webcrawler.db`; ścieżki względne są liczone od katalogu `projekt/`, niezależnie od bieżącego katalogu procesu. API nie tworzy tabel domenowych przy starcie — schemat obsługuje Alembic. Migracje do `0003_crawler` tworzą schemat sesji/wyników oraz trwały dziennik postępu. Po aktualizacji z wcześniejszych etapów wykonaj ponownie `uv run alembic upgrade head`; istniejący plik SQLite i wolumen pozostają zachowane.
 
-## Praca z sesjami (etap 02)
+## Sesje i crawler (etap 03)
 
-Otwórz **Sesje**, podaj publiczny HTTP/HTTPS URL i wybierz konfigurację. **Utwórz sesję** zapisuje ją w SQLite i otwiera szczegóły. Można wrócić do listy, filtrować po statusie, przechodzić między stronami, edytować oczekującą konfigurację i usuwać sesję po potwierdzeniu. Odświeżenie strony lub restart backendu zachowuje zapis.
+Otwórz **Sesje**, podaj publiczny HTTP/HTTPS URL, wybierz BFS/DFS, zakres i limity. **Utwórz sesję** zapisuje konfigurację i otwiera szczegóły. **Uruchom crawler** rozpoczyna pobieranie; **Anuluj sesję** przerywa aktywne żądanie i zachowuje wyniki. Liczniki i powód zakończenia pochodzą z backendu. UI odbiera SSE i podczas pracy dodatkowo ponawia REST, aby odtworzyć postęp po problemie z połączeniem.
 
-Sesje mają teraz status „Oczekująca”. Przycisk uruchamiania crawlera pojawi się dopiero w etapie 03. Bieżąca implementacja nie pobiera start URL ani nie generuje metryk. Parametry dodatkowe obejmują timeout, opóźnienie, limit czasu całej sesji, rozmiaru odpowiedzi, redirectów, współbieżność i robots.txt. Reguły walidacji i pełne przykłady kontraktów: [docs/API.md](docs/API.md).
+Strona startowa ma głębokość 0. Zakres server podąża tylko po tym samym hoście; web wymaga włączenia zewnętrznych URL. process_one_page nadal zapisuje odnośniki strony startowej. Obrazy/CSS/JS są odkrywane jako cele grafu, ale nie pobierane jako HTML. Limit stron liczy próby, również zablokowane przez robots lub zakończone błędem; licznik „Pobrane HTML” oznacza rzeczywiste odpowiedzi HTML 2xx. To odrębne wielkości.
 
-W Swagger UI dostępne są POST/GET/PATCH/DELETE `/api/sessions`. PATCH edytuje wyłącznie sesję `queued` i zastępuje cały przekazany blok `config` (domyślne wartości uzupełniają pominięte pola). DELETE usuwa również wyniki tej sesji; nie jest dostępne dla statusu `running`.
+BFS/DFS w wersji 0.3 pobiera **sekwencyjnie**, aby zachować deterministyczną kolejność. concurrency jest górną granicą, efektywnie 1. Maksymalnie cztery aktywne sesje; współdzielą opóźnienia per origin. Większe limity konfiguracji nie wymuszają równoległości.
+
+Domyślnie robots.txt jest respektowane. Błąd jego odczytu blokuje pobranie (404/410 oznacza brak reguł). Każdy URL/redirect i wszystkie odpowiedzi DNS są sprawdzane; połączenie jest przypięte do publicznego IP, rzeczywisty adres sprawdzany, TLS weryfikuje nazwę hosta. Nie ma przełącznika „zezwól na prywatną sieć”. Proxy z otoczenia są wyłączone. Niektóre witryny mogą zostać bezpiecznie pominięte przez restrykcyjną politykę robots, kompresji lub rozmiaru/analizy.
+
+Oczekującą sesję można edytować/usunąć. Po starcie konfiguracja jest zamrożona; sesji running nie można usunąć. Zakończonego zadania nie uruchamia się ponownie — utwórz nową sesję. Po zwykłym wyłączeniu serwera zadania stają się cancelled/server_shutdown; po nagłym restarcie running otrzymują failed/interrupted, bez automatycznego wznowienia kolejki. Zapisane strony/linki/zdarzenia pozostają. Flaga timeout-graceful-shutdown 5 kończy również otwarte SSE podczas wyłączania, aby pracownik mógł zapisać stan i zwolnić blokadę. Compose daje kontenerowi 30 s; ręczny restart backendu wykonuj przez `docker compose restart --no-deps --timeout 30 backend`.
+
+Uruchamiaj **jeden proces API na plik SQLite** (bez --workers >1 i bez współdzielenia DB przez drugi serwer). Blokada plikowa egzekwuje własność; sam plik .worker.lock może pozostać po zamknięciu — blokadę utrzymuje otwarty uchwyt OS, nie istnienie pliku. Wymagane SQLite 3.35+ dla natywnego downgrade kolumn. Szczegółowe limity, reguły linków, liczniki i SSE: [API](docs/API.md), [architektura](docs/ARCHITECTURE.md).
 
 ## Konfiguracja
 
@@ -86,9 +92,9 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright sam uruchamia rzeczywisty backend i frontend na osobnych portach **18000/15173**, z osobną bazą `projekt/data/e2e.db` i konfiguracją CORS. Nie wymaga zatrzymania Compose. Porty testowe muszą być wolne. Testy obejmują odczyt prawdziwego statusu SQLite, ponowienie, nawigację, odświeżenie podstrony, widok mobilny i niedostępność API. Etap 02 dodaje tworzenie, utrwalenie po odświeżeniu, edycję i usunięcie sesji oraz odrzucanie prywatnych URL.
+Playwright sam uruchamia rzeczywisty backend, kontrolowaną witrynę HTTP i frontend na osobnych portach **18000/15173**, z osobną bazą `projekt/data/e2e.db` i konfiguracją CORS. Testowy backend jest wstrzykiwany wyłącznie w `tests/e2e_app.py`; obraz produkcyjny nie zawiera katalogu tests ani takiej opcji środowiskowej. Nie wymaga zatrzymania Compose. Porty testowe muszą być wolne. Testy obejmują odczyt prawdziwego statusu SQLite, ponowienie, nawigację, odświeżenie podstrony, widok mobilny i niedostępność API. Testy obejmują też CRUD sesji, rzeczywiste pobieranie z witryny fixture, limit stron, zachowanie wyników po odświeżeniu i anulowanie. Deterministyczne testy nie zależą od zmiennych publicznych witryn.
 
-Wyniki bieżącego etapu i pełna lista plików: [docs/PHASE_02.md](docs/PHASE_02.md); wcześniejszy raport: [etap 01](docs/PHASE_01.md). Backend: **113 testów OK**; frontend: **18 testów OK**; Playwright: **4 testy OK**. Build, Ruff i Compose sprawdzone. `npm audit`: 0 podatności.
+Wyniki i lista plików: [etap 03](docs/PHASE_03.md); wcześniejsze raporty: [etap 02](docs/PHASE_02.md), [etap 01](docs/PHASE_01.md). Backend: **199 testów OK**; frontend: **23 testy OK**; Playwright: **6 testów OK**. Build, Ruff i Compose sprawdzone. `npm audit`: 0 podatności.
 
 ## Struktura
 
@@ -110,6 +116,6 @@ Zależności backendu przypina `uv.lock`; eksport produkcyjny `requirements.lock
 - [API](docs/API.md)
 - [Wymagania laboratorium](docs/LAB_REQUIREMENTS.md)
 
-Crawler, ochrona transportu SSRF/robots/rate limiting, ekstrakcja, graf, CSV, porównania i raporty pozostają w etapach 03–08. Cytoscape.js i Recharts będą dodane wraz z funkcjami, które ich potrzebują. Nawigacja do przyszłych sekcji wyświetla jawne informacje o ich planowanym etapie. Nie wykonuje żadnych żądań crawlowania.
+Ekstrakcja title/description/keywords/body i API stron należą do etapu 04; graf, CSV, porównania i raporty do etapów 05–08. Cytoscape.js i Recharts będą dodane wraz z funkcjami, które ich potrzebują. Nawigacja do przyszłych sekcji wyświetla jawne informacje o ich planowanym etapie. Nie wykonuje żadnych żądań crawlowania.
 
 Konfiguracja UI oparta na oficjalnych instrukcjach [Tailwind + Vite](https://tailwindcss.com/docs/installation/using-vite) i [shadcn/ui + Vite](https://ui.shadcn.com/docs/installation/vite). Button wygenerowano CLI shadcn, następnie dopasowano importy do lokalnego `cn` i `@radix-ui/react-slot`.

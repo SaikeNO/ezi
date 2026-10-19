@@ -69,7 +69,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
+export function eventsUrl(id: string): string {
+  const base = (
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"
+  ).replace(/\/$/, "");
+  return `${base}/api/sessions/${encodeURIComponent(id)}/events`;
+}
+
 export const sessionsApi = {
+  start: (id: string) =>
+    request<CrawlSession>(`/api/sessions/${encodeURIComponent(id)}/start`, {
+      method: "POST",
+    }),
+  cancel: (id: string) =>
+    request<CrawlSession>(`/api/sessions/${encodeURIComponent(id)}/cancel`, {
+      method: "POST",
+    }),
   list: (offset = 0, status: SessionStatus | "" = "", signal?: AbortSignal) =>
     request<SessionList>(
       `/api/sessions?offset=${offset}&limit=10${status ? `&status=${status}` : ""}`,

@@ -23,3 +23,8 @@ def client(database):
     settings, _ = database
     with TestClient(create_app(settings)) as client:
         yield client
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"

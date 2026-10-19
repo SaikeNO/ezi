@@ -1,22 +1,36 @@
 # Architektura i semantyka crawlera
 
-## Stan po etapie 02
+## Stan po etapie 03
 
-Działa monorepo, health API/SQLite i pełna obsługa zapisu, odczytu, listowania, edycji oraz usuwania sesji. Polski interfejs korzysta z REST API i przechowuje w SQLite wszystkie parametry konfiguracji. Nie ma jeszcze wykonywania crawlowania.
+Działa monorepo, CRUD sesji i rzeczywisty crawler z kolejką BFS/stosem DFS, start/cancel, zapisanymi częściowymi wynikami i trwałym dziennikiem SSE. Interfejs pokazuje liczniki wyłącznie z API i pozwala uruchamiać/anulować sesje. Tytuły, meta description/keywords/body oraz API eksploratora pozostają w etapie 04; graf, CSV i porównania w dalszych etapach.
 
-Schemat wdraża migracja `0002_sessions`: `sessions`, `crawl_config`, `pages`, `links`, `experiments` i tabela członkostw `experiment_sessions`. `Base` zawiera pełną typowaną metadokumentację SQLAlchemy. Schemat zmienia Alembic; aplikacja nie wywołuje `create_all`.
+Migracja `0003_crawler` rozszerza sesję o link_count, stop_reason, wersję crawlera i User-Agent, stronę o final_url oraz dodaje crawl_events z FK CASCADE i indeksem `(session_id, id)`. Zachowuje dane etapu 02; aplikacja nie używa create_all. SQLite 3.35+ jest wymagane do bezpiecznego downgrade kolumn bez odtwarzania tabel nadrzędnych. Sprawdzono migrację w obu kierunkach z istniejącymi stronami/linkami.
 
-- Każda sesja ma własną konfigurację (PK/FK `session_id`), status, czasy UTC i liczniki. Nowa sesja jest `queued`; nie można podać statusu/liczników w JSON tworzenia ani edycji.
-- Konfigurację można zmienić tylko przed uruchomieniem, co zachowuje odtwarzalność przyszłych wyników. PATCH zastępuje przekazany blok konfiguracji. Wyniki i start/cancel należą do następnych etapów.
-- SQLite ma włączone `foreign_keys`. Usunięcie sesji kaskadowo usuwa jej konfigurację, strony, linki i członkostwa eksperymentów; sam eksperyment i inne sesje pozostają. Sesji `running` nie można usunąć.
-- Strony są unikalne po `(session_id, normalized_url)`. Pole `fetch_order=null` oznacza brak pobrania; wykrycie strony i pobranie nie są utożsamiane.
-- Linki zachowują **każde wystąpienie**, także powtórzenia tego samego celu. Są indeksowane po sesji/źródle i sesji/URL celu. Miary unikalnych krawędzi w etapie 05 będą liczone osobno.
-- Złożone FK pilnują zgodności sesji linku i strony źródłowej/docelowej. Usunięcie strony docelowej zeruje opcjonalne `target_page_id` i zachowuje `target_url`; kontrola docelowego FK jest odroczona do końca transakcji. Relacje źródła/celu i lista linków wychodzących są widokami ORM; zapis Link używa jawnych ID.
-- Eksperyment może odnosić się do wielu sesji, a sesja do wielu eksperymentów. W tym etapie istnieje model i relacje, bez API eksperymentów.
-- SQLite przechowuje naiwne daty UTC; `UTCDateTime` wymaga strefy przy zapisie i odtwarza świadome UTC przy odczycie.
-- Walidacja wejścia obejmuje skończone limity, enumy i składnię/publiczne literały IP start URL. Nie ma rozwiązywania DNS ani zdalnych żądań przy tworzeniu sesji. Pełne zabezpieczenia transportu zostaną wdrożone wraz z crawlerem.
+- Każda sesja ma własną konfigurację i wyniki; statusy zmienia pracownik. Transakcje BEGIN IMMEDIATE chronią start/edycję/usunięcie przed wyścigami. Konfiguracja pozostaje niezmienna po starcie.
+- Jeden proces API na plik SQLite (egzekwowany blokadą OS), maksymalnie cztery aktywne sesje. Każda pobiera sekwencyjnie; concurrency jest górną granicą, efektywnie 1. Chroni to kolejność BFS/DFS przed wyścigami odpowiedzi.
+- HTMLParser odkrywa nawigację bez wykonywania pobranego kodu. Nie wypełnia metadanych treści. Łącza względne odnoszą się do końcowego URL i pierwszego base href. Zasoby są celami linków, nie są dodawane do kolejki HTML.
+- Deduplikacja dotyczy znormalizowanych URL żądań. Różne adresy przekierowujące na tę samą stronę mogą wymagać osobnych prób; final_url zachowuje ich znaczenie. Query nie jest sortowane, zastrzeżone kodowania nie są dekodowane.
+- DFS po znalezieniu krótszej ścieżki aktualizuje znaną głębokość i ponownie rozwija zapisane odnośniki bez drugiego pobrania strony. Przy ograniczeniach/błędach głębokość to minimum poznanych przejść, nie obietnica pełnego grafu.
+- Strony pozostają unikalne po `(session_id, normalized_url)`. Linki zachowują wszystkie wystąpienia. FK pilnują zgodności sesji źródła/celu. Usunięcie sesji kaskadowo usuwa konfigurację, strony, linki, zdarzenia i członkostwa eksperymentów, zachowując inne sesje i rekord eksperymentu.
+- Metadane HTTP i zdarzenie page_fetched zapisywane są od razu po odbiorze HTML; linki, nowe strony i progress w następnym kroku. Dzięki temu anulowanie lub błąd analizy nie usuwa już odebranej strony.
 
-Pozostałe komponenty poniżej stanowią plan kolejnych etapów. Limity konfiguracji i wdrożone kontrakty opisuje `API.md`.
+### Polityka sieci
+
+Każde żądanie i każdy redirect przechodzi tę samą walidację HTTP/HTTPS, portów i hosta. DNS zwraca ograniczony zbiór A/AAAA: choćby jeden niepubliczny adres odrzuca całość. Połączenie jest wykonywane do zatwierdzonego literału IP (bez drugiego lookup nazwy), a getpeername/server_addr jest weryfikowane przed wysłaniem HTTP i przy I/O. TLS używa oryginalnej nazwy SNI oraz weryfikacji certyfikatu. Połączenia keep-alive i proxy z otoczenia są wyłączone; zdalne cookies nie są przenoszone do następnych żądań.
+
+Wspólny limiter obejmuje robots, DNS, redirecty i odbiór odpowiedzi. Blokada origin trwa do końca żądania, po czym następne czeka co najmniej max(opóźnienie konfiguracji, robots). Zapobiega grupowaniu ruchu po wolnym DNS. Origin to schemat/host/port; zakres server nadal oznacza ten sam host.
+
+Robots jest domyślnie włączone, pobierane raz na origin/sesję bez rekurencyjnego odczytu robots. 404/410 pozwala; 401/403, pozostałe błędy, nieprawidłowe UTF-8/reguły, zły typ odpowiedzi i niebezpieczny redirect blokują. Redirect robots poza origin jest niedozwolony. Obsługiwane: wybór najdokładniejszego User-agent i łączenie grup, Allow/Disallow z najdłuższym dopasowaniem (Allow wygrywa remis), `*`, końcowe `$`, Crawl-delay i Request-rate. Nie deklarujemy pełnej zgodności z historycznymi crawlerami ani wszystkich rozszerzeń robots.
+
+User-Agent: WebCrawlerStudio/0.3 (educational crawler; respects robots.txt). Brak opcji wyłączania ochrony SSRF w konfiguracji lub zmiennych środowiska. Testy wstrzykują osobny backend wyłącznie w Pythonie z katalogu tests; nie jest dostarczany w obrazie.
+
+### Budżety i anulowanie
+
+Oprócz limitów konfiguracji: 50000 kandydatów stron, 200000 wystąpień linków/sesję, 5000 referencji/stronę, 100000 elementów HTML, 65536 znaków niedomkniętego tokena/bloku i limit czasu analizy. Robots ma limit min(limit odpowiedzi, 512 KiB). Kompresja jest odrzucana mimo Accept-Encoding identity, aby nie dopuścić bomb dekompresyjnych. Limit bajtów jest sprawdzany na Content-Length i podczas strumieniowania.
+
+Budżet sesji obejmuje robots, opóźnienia, DNS, odpowiedzi i analizę. Anulowanie przerywa oczekiwania/HTTP; parser w wątku sprawdza sygnał między ograniczonymi fragmentami. Krótkie, ograniczone kroki zapisu SQLite kończą transakcję, zanim zapisany zostanie stan terminalny. Przy limicie odkrywania krok odkrywania bieżącej strony jest wycofywany, lecz odebrane HTML i poprzednie wyniki pozostają. SSE nie ma rosnących kolejek w RAM — odczytuje zapisany dziennik partiami.
+
+Proces Docker używa exec, Uvicorn ma 5 s grace dla otwartych odpowiedzi, a kontener 30 s stop_grace_period. Ręczny restart wymaga jawnego --timeout 30, aby CLI nie skróciło okna. Zwykłe wyłączenie zapisuje cancelled/server_shutdown. Nagły restart oznacza running jako failed/interrupted; nie wznawia automatycznie nieutrwalonej kolejki. Semantykę liczników, błędów i reconnect opisuje API.md.
 
 ## Przepływ
 

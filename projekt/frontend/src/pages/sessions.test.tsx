@@ -16,6 +16,7 @@ const saved: CrawlSession = {
   fetched_count: 0,
   error_count: 0,
   error: null,
+  link_count: 0, stop_reason: null, crawler_version: null, user_agent: null,
   config: { ...defaultConfig, strategy: "dfs", max_depth: 2 },
 };
 const json = (value: unknown, status = 200) =>
