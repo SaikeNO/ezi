@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 
 class Base(DeclarativeBase):
-    """Shared model metadata; domain tables arrive in phase 02."""
+    """Shared metadata for the Alembic-managed domain schema."""
 
 
 def build_engine(database_url: str) -> Engine:

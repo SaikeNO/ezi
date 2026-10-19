@@ -45,12 +45,13 @@ describe("bootstrap UI", () => {
   })
 
   it("navigation identifies deferred functionality, without fake metrics", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(health()))
+    vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(url.endsWith("/health")
+      ? health() : new Response(JSON.stringify({ items: [], total: 0, limit: 10, offset: 0 })))))
     mount()
     await screen.findByText("Backend działa")
     await userEvent.click(screen.getByRole("link", { name: "Sesje" }))
     expect(screen.getByRole("heading", { name: "Sesje" })).toBeInTheDocument()
-    expect(screen.getByText(/dostępne w etapie 02/)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Nowa sesja" })).toBeInTheDocument()
     await userEvent.click(screen.getByRole("link", { name: "Graf witryny" }))
     expect(screen.getByRole("heading", { name: "Graf witryny" })).toBeInTheDocument()
     await userEvent.click(screen.getByRole("link", { name: "Porównania" }))

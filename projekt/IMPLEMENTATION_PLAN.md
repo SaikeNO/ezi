@@ -14,6 +14,8 @@ Implementuj etapy **kolejno**. Po każdym etapie: wykonaj testy, popraw wykryte 
 
 ## Etap 02 — Database & Sessions
 
+**Status:** ukończony 2026-10-19. Wyniki w `docs/PHASE_02.md`.
+
 **Zadania:** modele `CrawlSession`, `CrawlConfig`, `Page`, `Link`, `Experiment`; indeksy i relacje; migracje; CRUD sesji; statusy `queued/running/completed/failed/cancelled`; walidacja konfiguracji.
 
 **Definition of Done:** można utworzyć, odczytać, wylistować i usunąć sesję; dane przetrwają restart; testy migracji i API przechodzą.

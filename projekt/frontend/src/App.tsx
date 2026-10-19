@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from "react-router-dom"
 import { ArrowUpRight, Database, GitCompareArrows, LayoutDashboard, Network } from "lucide-react"
+import { SessionDetail, SessionsPage } from "@/pages/sessions"
 import { HealthPanel } from "@/components/health-panel"
 
 const sections = [
@@ -17,9 +18,9 @@ function Overview() {
     <div className="mt-9 grid gap-6 lg:grid-cols-2">
       <HealthPanel />
       <section className="rounded-2xl bg-slate-900 p-6 text-white sm:p-8">
-        <p className="text-xs font-semibold tracking-widest text-teal-300">ETAP 01 / FUNDAMENT</p>
+        <p className="text-xs font-semibold tracking-widest text-teal-300">ETAP 02 / SESJE</p>
         <h2 className="mt-4 text-xl font-semibold">Od adresu do wiedzy o witrynie</h2>
-        <p className="mt-4 leading-relaxed text-slate-300">Uruchomione środowisko aplikacji i kontrola połączenia z bazą SQLite. Obsługa sesji, zbieranie stron i analiza wyników pojawią się w kolejnych etapach.</p>
+        <p className="mt-4 leading-relaxed text-slate-300">Zapisuj sesje i ich konfiguracje w bazie SQLite. Zbieranie stron i analiza wyników pojawią się w kolejnych etapach.</p>
         <div className="mt-8 flex items-center gap-2 text-sm text-teal-200"><ArrowUpRight aria-hidden="true" size={18} /> Analizy będą oparte na rzeczywistych danych.</div>
       </section>
     </div>
@@ -40,11 +41,12 @@ export default function App() {
       </nav>
       <p className="mt-10 text-xs leading-relaxed text-muted-foreground">Laboratorium eksploracji<br />zasobów internetowych</p>
     </aside>
-    <div><header className="flex items-center justify-between border-b px-6 py-5 sm:px-10"><span className="text-sm text-muted-foreground">Przestrzeń robocza</span><span className="rounded-full border bg-white px-3 py-1 text-xs">Etap 01</span></header>
+    <div><header className="flex items-center justify-between border-b px-6 py-5 sm:px-10"><span className="text-sm text-muted-foreground">Przestrzeń robocza</span><span className="rounded-full border bg-white px-3 py-1 text-xs">Etap 02</span></header>
       <main id="main" className="mx-auto max-w-6xl px-6 py-10 sm:px-10 sm:py-14">
         <Routes>
           <Route path="/" element={<Overview />} />
-          <Route path="/sessions" element={<Planned title="Sesje" description="Tworzenie i zapisywanie konfiguracji sesji będzie dostępne w etapie 02." />} />
+          <Route path="/sessions" element={<SessionsPage />} />
+          <Route path="/sessions/:id" element={<SessionDetail />} />
           <Route path="/graph" element={<Planned title="Graf witryny" description="Interaktywny graf pojawi się w etapie 05 po wdrożeniu crawlera i ekstrakcji danych." />} />
           <Route path="/experiments" element={<Planned title="Porównania" description="Porównywanie rzeczywistych wyników sesji będzie dostępne w etapie 07." />} />
           <Route path="*" element={<Planned title="Nie znaleziono strony" description="Wybierz sekcję z menu nawigacji." />} />

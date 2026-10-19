@@ -1,5 +1,6 @@
 from alembic import context
 
+from app import models  # noqa: F401 -- register all domain tables for autogenerate
 from app.core.config import Settings
 from app.database import Base, build_engine
 

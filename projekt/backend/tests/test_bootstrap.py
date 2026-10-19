@@ -81,8 +81,8 @@ def test_migrations_upgrade_downgrade_and_persist(tmp_path, monkeypatch):
     path = tmp_path / "migrations.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{path.as_posix()}")
     config = Config(str(PROJECT_ROOT / "backend" / "alembic.ini"))
-    command.upgrade(config, "head")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0001_bootstrap")
+    command.upgrade(config, "0001_bootstrap")
     engine = build_engine(settings_for(path).database_url)
     with engine.connect() as connection:
         assert (

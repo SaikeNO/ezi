@@ -9,8 +9,10 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api import router
 from app.core.config import Settings
 from app.database import build_engine
+from app.errors import install_error_handlers
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +33,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             engine.dispose()
 
-    application = FastAPI(title="WebCrawler Studio", version="0.1.0", lifespan=lifespan)
+    application = FastAPI(title="WebCrawler Studio", version="0.2.0", lifespan=lifespan)
     application.state.engine = engine
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Content-Type"],
+        expose_headers=["Location"],
     )
 
     @application.get(
@@ -54,6 +57,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return HealthResponse(status="error", database="unavailable")
         return HealthResponse(status="ok", database="ok")
 
+    install_error_handlers(application)
+    application.include_router(router)
     return application
 
 

@@ -1,10 +1,22 @@
 # Architektura i semantyka crawlera
 
-## Stan po etapie 01
+## Stan po etapie 02
 
-Działa monorepo `backend/` + `frontend/`, odczyt statusu API/SQLite, konfiguracja środowiska, SQLAlchemy i łańcuch migracji Alembic. Wspólna baza metadanych `Base` nie ma jeszcze tabel domenowych. Połączenia SQLite włączają `foreign_keys`; sesje SQLAlchemy mają jawny cykl życia. Schemat zmieniają migracje, bez `create_all` przy starcie aplikacji. Frontend obsługuje ładowanie, sukces, brak bazy i błąd połączenia; nie generuje wyników crawlowania.
+Działa monorepo, health API/SQLite i pełna obsługa zapisu, odczytu, listowania, edycji oraz usuwania sesji. Polski interfejs korzysta z REST API i przechowuje w SQLite wszystkie parametry konfiguracji. Nie ma jeszcze wykonywania crawlowania.
 
-Pozostałe komponenty poniżej stanowią plan kolejnych etapów.
+Schemat wdraża migracja `0002_sessions`: `sessions`, `crawl_config`, `pages`, `links`, `experiments` i tabela członkostw `experiment_sessions`. `Base` zawiera pełną typowaną metadokumentację SQLAlchemy. Schemat zmienia Alembic; aplikacja nie wywołuje `create_all`.
+
+- Każda sesja ma własną konfigurację (PK/FK `session_id`), status, czasy UTC i liczniki. Nowa sesja jest `queued`; nie można podać statusu/liczników w JSON tworzenia ani edycji.
+- Konfigurację można zmienić tylko przed uruchomieniem, co zachowuje odtwarzalność przyszłych wyników. PATCH zastępuje przekazany blok konfiguracji. Wyniki i start/cancel należą do następnych etapów.
+- SQLite ma włączone `foreign_keys`. Usunięcie sesji kaskadowo usuwa jej konfigurację, strony, linki i członkostwa eksperymentów; sam eksperyment i inne sesje pozostają. Sesji `running` nie można usunąć.
+- Strony są unikalne po `(session_id, normalized_url)`. Pole `fetch_order=null` oznacza brak pobrania; wykrycie strony i pobranie nie są utożsamiane.
+- Linki zachowują **każde wystąpienie**, także powtórzenia tego samego celu. Są indeksowane po sesji/źródle i sesji/URL celu. Miary unikalnych krawędzi w etapie 05 będą liczone osobno.
+- Złożone FK pilnują zgodności sesji linku i strony źródłowej/docelowej. Usunięcie strony docelowej zeruje opcjonalne `target_page_id` i zachowuje `target_url`; kontrola docelowego FK jest odroczona do końca transakcji. Relacje źródła/celu i lista linków wychodzących są widokami ORM; zapis Link używa jawnych ID.
+- Eksperyment może odnosić się do wielu sesji, a sesja do wielu eksperymentów. W tym etapie istnieje model i relacje, bez API eksperymentów.
+- SQLite przechowuje naiwne daty UTC; `UTCDateTime` wymaga strefy przy zapisie i odtwarza świadome UTC przy odczycie.
+- Walidacja wejścia obejmuje skończone limity, enumy i składnię/publiczne literały IP start URL. Nie ma rozwiązywania DNS ani zdalnych żądań przy tworzeniu sesji. Pełne zabezpieczenia transportu zostaną wdrożone wraz z crawlerem.
+
+Pozostałe komponenty poniżej stanowią plan kolejnych etapów. Limity konfiguracji i wdrożone kontrakty opisuje `API.md`.
 
 ## Przepływ
 
