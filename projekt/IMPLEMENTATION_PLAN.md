@@ -6,6 +6,8 @@ Implementuj etapy **kolejno**. Po każdym etapie: wykonaj testy, popraw wykryte 
 
 ## Etap 01 — Project Bootstrap
 
+**Status:** ukończony 2026-10-18. Wyniki w `docs/PHASE_01.md`.
+
 **Zadania:** monorepo backend/frontend; FastAPI `/health`; React + TypeScript + Vite; Tailwind + shadcn/ui; SQLite i konfiguracja SQLAlchemy/Alembic; CORS dla lokalnego frontendu; `.env.example`; Docker Compose; podstawowy układ nawigacji.
 
 **Definition of Done:** frontend uruchamia się, wyświetla status backendu, endpoint `/health` odpowiada, kontenery/komendy deweloperskie zostały sprawdzone, README opisuje rzeczywiste uruchomienie.

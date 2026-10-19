@@ -1,5 +1,11 @@
 # Architektura i semantyka crawlera
 
+## Stan po etapie 01
+
+Działa monorepo `backend/` + `frontend/`, odczyt statusu API/SQLite, konfiguracja środowiska, SQLAlchemy i łańcuch migracji Alembic. Wspólna baza metadanych `Base` nie ma jeszcze tabel domenowych. Połączenia SQLite włączają `foreign_keys`; sesje SQLAlchemy mają jawny cykl życia. Schemat zmieniają migracje, bez `create_all` przy starcie aplikacji. Frontend obsługuje ładowanie, sukces, brak bazy i błąd połączenia; nie generuje wyników crawlowania.
+
+Pozostałe komponenty poniżej stanowią plan kolejnych etapów.
+
 ## Przepływ
 
 `React UI` → `FastAPI REST` → `Crawler Engine` → `httpx / HTML Parser` → `SQLite`. Backend publikuje zdarzenia postępu przez SSE; frontend pobiera graf, statystyki i tabelę wyników po API. `Analysis/Comparison Service` odczytuje zapisane sesje i generuje porównania.

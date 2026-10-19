@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --radius-md: 0.5rem;
+}
+:root {
+  font-family: Inter, "Segoe UI", sans-serif;
+  color: #0f172a;
+  background: #f7f9fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --background: #f7f9fb;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #526177;
+  --accent: #f0fdfa;
+  --accent-foreground: #115e59;
+  --destructive: #b91c1c;
+  --border: #e2e8f0;
+}
+@layer base {
+  * { @apply border-border; }
+  body { @apply m-0 min-w-[320px] bg-background text-foreground; }
+  button, a { @apply focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-700; }
+}
+.eyebrow { @apply text-xs font-semibold tracking-widest text-teal-700; }

@@ -1,6 +1,16 @@
 # Planowane API REST i SSE
 
-> Status: kontrakt projektowy. Schematy JSON są do dopracowania w kodzie i OpenAPI podczas implementacji.
+> Status: etap 01 implementuje wyłącznie `GET /health`. Pozostałe endpointy są kontraktem projektowym i nie są jeszcze dostępne. Aktualny kontrakt działającego API: `/openapi.json`, interaktywna dokumentacja: `/docs`.
+
+## Health — wdrożone w etapie 01
+
+`GET /health` wykonuje zapytanie `SELECT 1` do skonfigurowanej bazy SQLite.
+
+- HTTP 200: `{"status":"ok","database":"ok"}`.
+- HTTP 503: `{"status":"error","database":"unavailable"}` przy błędzie SQLAlchemy. Szczegóły błędu trafiają do logów, nie do klienta.
+- Sprawdza połączenie z bazą; nie potwierdza wykonania migracji ani dostępności funkcji późniejszych etapów.
+- Lokalny CORS dopuszcza wyłącznie jawnie skonfigurowane originy i metodę GET. Uprawnienia dla kolejnych endpointów zostaną rozszerzone przy ich implementacji.
+
 
 | Metoda | Ścieżka | Działanie |
 |---|---|---|
