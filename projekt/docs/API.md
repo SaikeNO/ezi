@@ -1,6 +1,6 @@
 # Planowane API REST i SSE
 
-> Status: etapy 01–03 implementują `/health`, CRUD sesji, start/cancel oraz SSE. Endpointy stron/metadanych, grafu, CSV i eksperymentów pozostają planowane. Aktualny kontrakt działającego API: `/openapi.json`, interaktywna dokumentacja: `/docs`.
+> Status: etapy 01–04 implementują `/health`, CRUD sesji, start/cancel, SSE oraz odczyt stron, metadanych i odnośników. Graf, CSV i eksperymenty pozostają planowane. Aktualny kontrakt działającego API: `/openapi.json`, interaktywna dokumentacja: `/docs`.
 
 ## Health — wdrożone w etapie 01
 
@@ -99,6 +99,26 @@ Zdarzenie i opisany krok DB zatwierdzane są w tej samej transakcji **przed** wy
 Po reconnect zwracane są rekordy z ID większym od `max(after, Last-Event-ID)`, partiami do 200. Kursor jest właściwy dla danej sesji; nie przenoś go pomiędzy sesjami. `retry: 2000`, heartbeat co 15 sekund bezczynności. Strumień zamyka się po opróżnieniu historii sesji terminalnej; UI zamyka EventSource i dodatkowo odczytuje REST co sekundę podczas running. Historia przeżywa restart i jest usuwana razem z sesją. Brak sesji przed otwarciem → 404; niepoprawny/ujemny kursor → 422; usunięcie podczas streamu kończy połączenie.
 
 Po nagłym restarcie zadania running otrzymują failed/interrupted z zachowaniem danych i zdarzeniem failure. Brak automatycznego wznowienia frontier. Działa jeden proces API na plik SQLite; blokada plikowa odrzuca drugiego pracownika.
+
+## Strony i ekstrakcja — wdrożone w etapie 04
+
+| Metoda | Ścieżka | Odpowiedź |
+|---|---|---|
+| GET | `/api/sessions/{uuid}/pages?offset=0&limit=20` | `{items,total,offset,limit}`, porządek `discovery_order`, następnie `id`. |
+| GET | `/api/sessions/{uuid}/pages/{page_uuid}` | Pełny rekord strony z tekstem `body`. |
+| GET | `/api/sessions/{uuid}/pages/{page_uuid}/links?offset=0&limit=20` | `{items,total,offset,limit}` wszystkich zapisanych wystąpień linków tej strony; porządek `id`, nie kolejność DOM. |
+
+Paginacja: offset 0–2147483647, limit 1–100, domyślnie 20. Niepoprawne UUID/parametry → 422. Brak sesji → 404 `session_not_found`; brak strony w podanej sesji (także ID strony innej sesji) → 404 `page_not_found`. Pusta sesja lub offset poza wynikiem daje pustą listę. Dane są dostępne również podczas pracy i po anulowaniu; odczyty kolejnych stron paginacji w aktywnej sesji nie stanowią jednego snapshotu.
+
+Lista stron zawiera `id`, `session_id`, `normalized_url`, `original_url`, `final_url`, `depth`, `discovery_order`, `fetch_order`, `http_status`, `content_type`, `encoding`, `title`, `description`, `keywords`, `error`. `body` jest odczytywane wyłącznie w szczegółach, aby nie pobierać wszystkich tekstów przy listowaniu. Lista obejmuje także odkryte, lecz niepobrane cele hiperłączy; ich metadane są null. Zasoby obrazów/CSS/JS występują w linkach, nie w liście stron.
+
+Link zawiera `id`, `source_page_id`, `target_url`, `target_page_id` (null dla zasobów), `kind`, `is_external`, `is_followed`. Powtórzenia celów zachowują osobne ID. Znaczenie `is_followed` i liczników nie zmienia się względem etapu 03.
+
+Ekstrakcja zapisuje pierwszy title i pierwsze meta o nazwie description/keywords z atrybutem content (nazwy bez rozróżniania wielkości liter). Encje HTML są dekodowane, whitespace normalizowany; keywords pozostaje tekstem, bez sztucznego dzielenia na tablicę. Brak pola → null, jawnie puste pole → pusty string. Body to tekst wewnątrz body; dla fragmentu bez body — tekst dokumentu poza head/title/script/style/template/noscript. Pomija komentarze i dodaje odstępy między elementami blokowymi. Inline zachowuje ciągłość tekstu. Nie jest to renderowanie CSS ani wykonywanie JavaScript.
+
+Kodowanie: BOM UTF-8/16/32 ma pierwszeństwo przed poprawnym HTTP charset, następnie deklaracja HTML rozpoznana przez BeautifulSoup w początkowych maksymalnie 4096 bajtach, domyślnie UTF-8. Nieznane/nieobsługiwane kodowanie jest pomijane; błędne sekwencje zastępuje U+FFFD. `encoding` po analizie to kanoniczna nazwa użytego kodeka, np. cp1250. Brak zgadywania statystycznego. `content_type` zawiera MIME bez parametrów, `http_status` status odebranej strony. Akceptowane dokumenty: HTML/XHTML 2xx; pozostałe odpowiedzi zachowują dotychczasową obsługę błędów strony.
+
+Odbiór HTTP, zapis metadanych oraz zapis odnośników są osobnymi krokami. Limit globalnego odkrywania może zachować metadane bez linków bieżącej strony. Błąd/limit samego parsera pozostawia pola treści null oraz zapisany błąd; nie publikuje częściowo przeanalizowanych danych. Starsze wyniki nie są automatycznie ponownie pobierane ani uzupełniane. Filtrowanie, wyszukiwanie i ekran eksploratora należą do etapu 06.
 
 ## Pełny kontrakt projektu (częściowo planowany)
 

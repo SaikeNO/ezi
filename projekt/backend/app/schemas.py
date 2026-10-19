@@ -11,7 +11,7 @@ from pydantic import (
 )
 
 from app.crawler.urls import CrawlError, validate_destination
-from app.models import LinkSelection, Scope, SessionStatus, Strategy
+from app.models import LinkKind, LinkSelection, Scope, SessionStatus, Strategy
 
 
 def validate_start_url(value: str) -> str:
@@ -95,6 +95,54 @@ class SessionRead(BaseModel):
 
 class SessionList(BaseModel):
     items: list[SessionRead]
+    total: int
+    offset: int
+    limit: int
+
+
+class PageSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    session_id: UUID
+    normalized_url: str
+    original_url: str
+    final_url: str | None
+    depth: int
+    discovery_order: int
+    fetch_order: int | None
+    http_status: int | None
+    content_type: str | None
+    encoding: str | None
+    title: str | None
+    description: str | None
+    keywords: str | None
+    error: str | None
+
+
+class PageRead(PageSummary):
+    body: str | None
+
+
+class PageList(BaseModel):
+    items: list[PageSummary]
+    total: int
+    offset: int
+    limit: int
+
+
+class LinkRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    source_page_id: UUID
+    target_url: str
+    target_page_id: UUID | None
+    kind: LinkKind
+    is_external: bool
+    is_followed: bool
+
+
+class LinkList(BaseModel):
+    items: list[LinkRead]
     total: int
     offset: int
     limit: int

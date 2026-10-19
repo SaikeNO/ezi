@@ -70,10 +70,14 @@ def website(pages=None, robots="User-agent: *\nDisallow:") -> Iterator[Website]:
             content = body.encode("utf-8") if isinstance(body, str) else body
             self.send_response(status)
             self.send_header(
-                "Content-Type", "text/plain" if self.path == "/robots.txt" else "text/html"
+                "Content-Type",
+                headers.get(
+                    "Content-Type", "text/plain" if self.path == "/robots.txt" else "text/html"
+                ),
             )
             for name, item in headers.items():
-                self.send_header(name, item)
+                if name.lower() != "content-type":
+                    self.send_header(name, item)
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             try:

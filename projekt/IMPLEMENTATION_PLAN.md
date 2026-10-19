@@ -30,6 +30,8 @@ Implementuj etapy **kolejno**. Po każdym etapie: wykonaj testy, popraw wykryte 
 
 ## Etap 04 — HTML & Metadata Extraction
 
+**Status:** ukończony 2026-10-19. Ekstrakcja, API i wyniki kontroli w `docs/PHASE_04.md`.
+
 **Zadania:** parsowanie `URL`, `title`, `meta description`, `meta keywords`, tekstu `body`; obsługa `base href`, URL relatywnych i absolutnych; odnośniki `<a>`, `<img>`, `<link>` i innych elementów w zależności od trybu; status HTTP, content-type, encoding, brakujące pola, błędny HTML.
 
 **Definition of Done:** testy parsera na fixture'ach pokrywają wszystkie tryby ekstrakcji; wyniki można pobrać przez API.

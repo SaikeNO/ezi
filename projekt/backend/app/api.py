@@ -7,12 +7,23 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, defer, selectinload
 
 from app.crawler.manager import TERMINAL
 from app.database import session_scope
-from app.models import CrawlConfig, CrawlEvent, CrawlSession, SessionStatus
-from app.schemas import ErrorResponse, SessionCreate, SessionList, SessionRead, SessionUpdate
+from app.models import CrawlConfig, CrawlEvent, CrawlSession, Link, Page, SessionStatus
+from app.schemas import (
+    ErrorResponse,
+    LinkList,
+    LinkRead,
+    PageList,
+    PageRead,
+    PageSummary,
+    SessionCreate,
+    SessionList,
+    SessionRead,
+    SessionUpdate,
+)
 
 router = APIRouter(
     prefix="/api/sessions",
@@ -86,6 +97,71 @@ def list_sessions(
 @router.get("/{session_id}", response_model=SessionRead)
 def read_session(session_id: UUID, db: Database) -> SessionRead:
     return SessionRead.model_validate(find_session(db, session_id))
+
+
+def find_page(db: Session, session_id: UUID, page_id: UUID) -> Page:
+    find_session(db, session_id)
+    page = db.scalar(
+        select(Page).where(Page.session_id == str(session_id), Page.id == str(page_id))
+    )
+    if page is None:
+        raise HTTPException(
+            404, detail={"code": "page_not_found", "message": "Nie znaleziono strony"}
+        )
+    return page
+
+
+@router.get("/{session_id}/pages", response_model=PageList)
+def list_pages(
+    session_id: UUID,
+    db: Database,
+    offset: Annotated[int, Query(ge=0, le=2147483647)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> PageList:
+    find_session(db, session_id)
+    filters = [Page.session_id == str(session_id)]
+    total = db.scalar(select(func.count()).select_from(Page).where(*filters)) or 0
+    rows = db.scalars(
+        select(Page)
+        .options(defer(Page.body))
+        .where(*filters)
+        .order_by(Page.discovery_order, Page.id)
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    return PageList(
+        items=[PageSummary.model_validate(row) for row in rows],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+
+@router.get("/{session_id}/pages/{page_id}", response_model=PageRead)
+def read_page(session_id: UUID, page_id: UUID, db: Database) -> PageRead:
+    return PageRead.model_validate(find_page(db, session_id, page_id))
+
+
+@router.get("/{session_id}/pages/{page_id}/links", response_model=LinkList)
+def list_page_links(
+    session_id: UUID,
+    page_id: UUID,
+    db: Database,
+    offset: Annotated[int, Query(ge=0, le=2147483647)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> LinkList:
+    find_page(db, session_id, page_id)
+    filters = [Link.session_id == str(session_id), Link.source_page_id == str(page_id)]
+    total = db.scalar(select(func.count()).select_from(Link).where(*filters)) or 0
+    rows = db.scalars(
+        select(Link).where(*filters).order_by(Link.id).offset(offset).limit(limit)
+    ).all()
+    return LinkList(
+        items=[LinkRead.model_validate(row) for row in rows],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.patch("/{session_id}", response_model=SessionRead)

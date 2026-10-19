@@ -73,7 +73,9 @@ def test_real_tcp_bfs_dfs_cycles_dedup_persistence_events(database, strategy, pa
         ] == paths
         assert [path for path, _, _ in site.requests if path != "/robots.txt"] == paths
         assert sum(path == "/robots.txt" for path, _, _ in site.requests) == 1
-        assert all(page.title is None and page.body is None for page in rows(client, session_id))
+        assert all(
+            page.title is None and page.body is not None for page in rows(client, session_id)
+        )
         with Session(client.app.state.engine) as db:
             events = db.scalars(
                 select(CrawlEvent)
@@ -393,6 +395,7 @@ def test_discovery_budgets_stop_without_losing_fetched_page(database, monkeypatc
         assert result["stop_reason"] in {"link_limit", "discovery_limit"}
         assert [path for path, _, _ in site.requests] == ["/robots.txt", "/"]
         assert len(rows(client, session_id)) == 1
+        assert rows(client, session_id)[0].body == "AA againB"
 
 
 def test_factory_failure_does_not_leave_running_session(database):

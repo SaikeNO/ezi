@@ -1,18 +1,26 @@
 # Architektura i semantyka crawlera
 
-## Stan po etapie 03
+## Stan po etapie 04
 
-Działa monorepo, CRUD sesji i rzeczywisty crawler z kolejką BFS/stosem DFS, start/cancel, zapisanymi częściowymi wynikami i trwałym dziennikiem SSE. Interfejs pokazuje liczniki wyłącznie z API i pozwala uruchamiać/anulować sesje. Tytuły, meta description/keywords/body oraz API eksploratora pozostają w etapie 04; graf, CSV i porównania w dalszych etapach.
+Działa monorepo, CRUD sesji i rzeczywisty crawler z kolejką BFS/stosem DFS, start/cancel, zapisanymi częściowymi wynikami i trwałym dziennikiem SSE. Interfejs pokazuje liczniki wyłącznie z API i pozwala uruchamiać/anulować sesje. Etap 04 dodaje ekstrakcję title/description/keywords/body i stronicowane API stron/linków oraz pełny tekst w szczegółach. Graf, ekran eksploratora, CSV i porównania pozostają w dalszych etapach.
 
 Migracja `0003_crawler` rozszerza sesję o link_count, stop_reason, wersję crawlera i User-Agent, stronę o final_url oraz dodaje crawl_events z FK CASCADE i indeksem `(session_id, id)`. Zachowuje dane etapu 02; aplikacja nie używa create_all. SQLite 3.35+ jest wymagane do bezpiecznego downgrade kolumn bez odtwarzania tabel nadrzędnych. Sprawdzono migrację w obu kierunkach z istniejącymi stronami/linkami.
 
 - Każda sesja ma własną konfigurację i wyniki; statusy zmienia pracownik. Transakcje BEGIN IMMEDIATE chronią start/edycję/usunięcie przed wyścigami. Konfiguracja pozostaje niezmienna po starcie.
 - Jeden proces API na plik SQLite (egzekwowany blokadą OS), maksymalnie cztery aktywne sesje. Każda pobiera sekwencyjnie; concurrency jest górną granicą, efektywnie 1. Chroni to kolejność BFS/DFS przed wyścigami odpowiedzi.
-- HTMLParser odkrywa nawigację bez wykonywania pobranego kodu. Nie wypełnia metadanych treści. Łącza względne odnoszą się do końcowego URL i pierwszego base href. Zasoby są celami linków, nie są dodawane do kolejki HTML.
+- Ograniczony, porcjowany HTMLParser w jednym przejściu odkrywa nawigację i metadane bez wykonywania pobranego kodu. BeautifulSoup rozpoznaje deklaracje kodowania; BOM/HTTP/meta/UTF-8 mają jawną kolejność opisaną w API.md. Parser toleruje brakujące zamknięcia tagów, nie obiecuje naprawy DOM identycznej z przeglądarką. Łącza względne odnoszą się do końcowego URL i pierwszego base z atrybutem href (także pustym). Niepoprawny base daje fallback do końcowego URL. Zasoby są celami linków, nie są dodawane do kolejki HTML.
 - Deduplikacja dotyczy znormalizowanych URL żądań. Różne adresy przekierowujące na tę samą stronę mogą wymagać osobnych prób; final_url zachowuje ich znaczenie. Query nie jest sortowane, zastrzeżone kodowania nie są dekodowane.
 - DFS po znalezieniu krótszej ścieżki aktualizuje znaną głębokość i ponownie rozwija zapisane odnośniki bez drugiego pobrania strony. Przy ograniczeniach/błędach głębokość to minimum poznanych przejść, nie obietnica pełnego grafu.
 - Strony pozostają unikalne po `(session_id, normalized_url)`. Linki zachowują wszystkie wystąpienia. FK pilnują zgodności sesji źródła/celu. Usunięcie sesji kaskadowo usuwa konfigurację, strony, linki, zdarzenia i członkostwa eksperymentów, zachowując inne sesje i rekord eksperymentu.
-- Metadane HTTP i zdarzenie page_fetched zapisywane są od razu po odbiorze HTML; linki, nowe strony i progress w następnym kroku. Dzięki temu anulowanie lub błąd analizy nie usuwa już odebranej strony.
+- Metadane HTTP i zdarzenie page_fetched zapisywane są od razu po odbiorze HTML. Po udanej analizie zapisuje się pola treści, potem osobno linki/nowe strony/progress. Dzięki temu anulowanie lub limit odkrywania nie usuwa już zapisanych wyników. Błąd samego parsera nie publikuje częściowej treści. Etap 04 używa istniejących kolumn Page z migracji 0002; nowa migracja nie jest potrzebna. Historyczne null nie są uzupełniane wstecz.
+
+### Obsługiwane odnośniki
+
+- hyperlinks: a[href], area[href].
+- images_and_hyperlinks: powyższe oraz img[src].
+- all_links: powyższe oraz link[href] (stylesheet, gdy rel zawiera ten token, inaczej other), script[src], audio/video/source/track/embed[src] (media), video[poster] (image), iframe[src] (other), object[data] (other), input[type=image][src] (image).
+
+Każde wystąpienie HTTP/HTTPS jest normalizowane i zapisane; fragmenty są usuwane, powtórzenia zachowane. Wykrycie prywatnego celu nie daje zgody na pobranie — nadal obowiązuje walidacja sieci etapu 03. Nie obsługujemy srcset, CSS url(), linków generowanych przez JS ani dodatkowego pobierania zasobów. Dokładne reguły brakujących pól i tekstu body opisuje API.md.
 
 ### Polityka sieci
 

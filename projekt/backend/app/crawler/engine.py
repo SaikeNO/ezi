@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import Engine, update
 from sqlalchemy.orm import Session
 
-from app.crawler.discovery import Reference, discover
+from app.crawler.discovery import Reference, extract
 from app.crawler.events import record
 from app.crawler.fetcher import Fetcher
 from app.crawler.urls import CrawlError, in_scope, normalize_url, same_host
@@ -191,8 +191,8 @@ class CrawlEngine:
                 db.commit()
             parse_cancelled = threading.Event()
             try:
-                node.references = await asyncio.to_thread(
-                    discover,
+                extracted = await asyncio.to_thread(
+                    extract,
                     document.body,
                     document.url,
                     self.config.link_types,
@@ -202,8 +202,13 @@ class CrawlEngine:
                 )
             finally:
                 parse_cancelled.set()
+            node.references = extracted.references
             with Session(self.engine) as db:
                 crawl, page = db.get(CrawlSession, self.session_id), db.get(Page, node.id)
+                page.title, page.description = extracted.title, extracted.description
+                page.keywords, page.body = extracted.keywords, extracted.body
+                page.encoding = extracted.encoding
+                db.commit()  # Keep metadata even if discovery hits a session budget.
                 candidates = self.expand(db, crawl, node, save_links=True)
                 db.flush()
                 record(db, crawl, "progress")

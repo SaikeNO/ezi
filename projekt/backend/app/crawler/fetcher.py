@@ -69,7 +69,7 @@ class Document:
     url: str
     status: int
     content_type: str
-    encoding: str
+    encoding: str | None
     body: bytes
 
 
@@ -223,7 +223,7 @@ class Fetcher:
                                 current,
                                 response.status_code,
                                 content_type,
-                                response.encoding or "utf-8",
+                                response.charset_encoding,
                                 bytes(content),
                             )
                 except TimeoutError as error:
