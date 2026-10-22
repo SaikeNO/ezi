@@ -1,8 +1,18 @@
 # Architektura i semantyka crawlera
 
-## Stan po etapie 07
+## Stan po etapie 08
 
-Działa monorepo, CRUD sesji i rzeczywisty crawler BFS/DFS, metadane, graf Cytoscape, eksplorator i CSV. Etap 07 dodaje zapisane grupy 2–4 konfiguracji wspólnego URL, uruchamianie wariantów oraz porównanie zakończonych sesji z wykresami Recharts. Wszystkie liczniki i wnioski pochodzą z zapisanych danych; raporty laboratoryjne/dashboard pozostają w etapie 08.
+Działa monorepo, CRUD sesji i rzeczywisty crawler BFS/DFS, metadane, graf Cytoscape, eksplorator i CSV, grupy 2–4 konfiguracji i porównania z wykresami Recharts. Etap 08 dodaje dashboard i pobierane raporty HTML sesji/porównań oraz pełne QA laboratorium. Wszystkie liczniki i obserwacje pochodzą z zapisanej bazy.
+
+### Dashboard i raporty
+
+`reporting.py` jest warstwą wyłącznie odczytu: bez nowej migracji, pobierania witryn, trwałej kopii raportów i zapisu konfiguracji. Dashboard zaczyna jawny snapshot SQLite przed agregacją statusów i zliczaniem Page/Link; pięć najnowszych sesji pochodzi z tej samej transakcji. Sumy są per rekord/sesja, nie są unikalnymi URL całej bazy.
+
+Raport sesji używa istniejącej projekcji grafu bez listy krawędzi; konfiguracja, status i zagregowane pokrycie metadanych są odczytywane w tej samej transakcji. Limit 5000 węzłów/20000 linków daje 413 zamiast ucięcia. Obejmuje wszystkie statusy, oznacza wyniki częściowe i brak czasu. Raport porównania używa dokładnie tej samej funkcji i budżetów co API porównań; pierwsze 100 elementów każdej kategorii to jawny podgląd z pełnym total. Metadane mają podgląd/hash; dane nie są ponownie pobierane. Nowe wygenerowanie pliku zmienia timestamp UTC, nie wyniki sesji terminalnej.
+
+HTML jest samodzielny, bez skryptów/zewnętrznych zależności. Każda wartość z DB przechodzi `html.escape`, w tym JSON w pre. Odpowiedź: attachment, no-store, nosniff i restrykcyjny CSP. Plik działa offline; w zapisanym pliku ochronę przed treścią witryny zapewnia escapowanie (nagłówki HTTP nie są częścią pliku). Tabele mają przewijanie na małych ekranach i style wydruku. Brak generatora PDF. Frontend pobiera raport przez fetch, sprawdza błędy/MIME przed zapisem, umożliwia anulowanie, zwalnia object URL i przerywa żądanie po opuszczeniu widoku. Dashboard nie zastępuje błędu zerami; odświeżenie jest ręczne.
+
+`tests/lab_site.py` dodaje 22 wewnętrzne HTML na głębokościach 0–3. Istniejący testowy serwer TCP i transport w `tests` zapewniają deterministyczne odpowiedzi bez produkcyjnej opcji pozwalającej na loopback. Osiem scenariuszy, konkretne metryki i interpretacja dawnych narzędzi: `ACCEPTANCE.md` i `USER_GUIDE.md`.
 
 ### Eksperymenty i porównania
 

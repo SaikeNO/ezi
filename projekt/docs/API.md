@@ -1,6 +1,20 @@
-# Planowane API REST i SSE
+# API REST i SSE
 
-> Status: etapy 01–07 implementują `/health`, sesje/crawler/SSE, ekstrakcję, graf, eksplorator/CSV oraz eksperymenty i porównania. Raport laboratoryjny/dashboard pozostaje w etapie 08. Aktualny kontrakt: `/openapi.json`, interaktywna dokumentacja: `/docs`.
+> Status: etapy 01–08 implementują `/health`, sesje/crawler/SSE, ekstrakcję, graf, eksplorator/CSV, eksperymenty i porównania, dashboard i raporty HTML. Aktualny kontrakt: `/openapi.json`, interaktywna dokumentacja: `/docs`.
+
+## Dashboard i raporty — etap 08
+
+| Metoda | Ścieżka | Odpowiedź |
+|---|---|---|
+| GET | `/api/dashboard` | JSON: sessions, statuses (wszystkie pięć statusów, także zero), discovered_pages, fetched_pages, errored_pages, links, recent (do pięciu SessionRead po created_at/id malejąco). |
+| GET | `/api/sessions/{uuid}/report` | Samodzielny plik HTML sesji, wszystkie statusy. Konfiguracja, status/stop_reason/błąd/wersja/UA, czas lub brak, pełne summary/per_depth/per_page i obecność metadanych w pobranych HTML, interpretacja. |
+| POST | `/api/reports/compare` | Body identyczne jak compare: `{"session_ids":["uuid-A","uuid-B"]}` (2–4 różne ID). Plik HTML metryk, konfiguracji, pokrycia metadanych, różnic i uwag z istniejącej funkcji compare. |
+
+Dashboard liczy Page/Link w całej bazie w jednym snapshotcie, niezależnie od utrwalonych liczników sesji. Fetched = final_url nie jest null; errored = error nie jest null, zbiory mogą się nakładać. Sumy są per sesja, URL może się powtarzać. Brak rekordów daje rzeczywiste zera i pustą recent. Błąd DB: standardowy 503 database_unavailable.
+
+Każdy raport odczytuje jeden snapshot DB, nie uruchamia HTTP do witryn. HTML: `text/html; charset=utf-8`, `Content-Disposition: attachment` (report-{uuid}.html lub comparison-report.html), no-store, nosniff, CSP blokujący skrypty/zasoby zewnętrzne; wartości DB są escapowanym tekstem. Wygenerowany timestamp jest UTC. Raport sesji oznacza queued/running, failed/cancelled, limit/błędy jako niepełne; pusty zbiór ma null głębokości/czasu i zera z DB. Limit 5000 węzłów / 20000 linków → 413 graph_too_large; pełne stats/CSV nadal działają. UUID błędny → 422, brak sesji → 404.
+
+Raport porównania zachowuje walidację, statusy, budżety i błędy compare (404/409/413/422/503). Wiersze metryk i total obejmują całość; szczegóły każdej listy to pierwsze 100 elementów (offset 0), bez parametru paginacji raportu. Dalsze partie: POST /api/compare z offset/limit. Podglądy treści 500 znaków + pełny hash/length/truncated. HTML wskazuje te ograniczenia; nie udaje pełnej listy przy większym total. Nie ma automatycznego wyboru najlepszego wariantu ani endpointu PDF. Błędy zwracają JSON, nie plik HTML.
 
 ## Health — wdrożone w etapie 01
 

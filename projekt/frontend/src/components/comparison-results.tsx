@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Responsive
 import { Button } from "@/components/ui/button";
 import { comparisonApi, type Comparison, type Results, type RunMetrics, type UrlSets } from "@/lib/comparison-api";
 import { statusLabels } from "@/types/sessions";
+import { ReportDownload } from "@/components/report-download";
 
 const labels = ["A", "B", "C", "D"];
 export function MetricsCharts({ runs }: { runs: RunMetrics[] }) {
@@ -65,6 +66,7 @@ export function ComparisonResults({ ids }: { ids: string[] }) {
     {error && <div className="mt-5"><p role="alert">{error}</p><Button className="mt-3" onClick={() => setAttempt(value => value + 1)}>Ponów porównanie</Button></div>}
     {!data && !error && <p role="status" className="mt-5">Obliczanie porównania…</p>}
     {data && <>
+      <ReportDownload sessionIds={ids} />
       <p className="mt-4 break-all text-sm">Wspólny adres startowy: {data.start_url}</p>
       <ul className="mt-4 space-y-2 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">{data.notes.map(note => <li key={note}>{note}</li>)}</ul>
       <MetricsCharts runs={data.runs} />

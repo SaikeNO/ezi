@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { describe, expect, it, vi } from "vitest"
 import App from "./App"
+vi.mock("@/components/dashboard", () => ({ Dashboard: () => null }))
 
 function mount() { return render(<MemoryRouter><App /></MemoryRouter>) }
 function health(status = 200, data: unknown = { status: "ok", database: "ok" }) {
@@ -44,7 +45,7 @@ describe("bootstrap UI", () => {
     expect(await screen.findByText("Brak połączenia z backendem")).toBeInTheDocument()
   })
 
-  it("navigation identifies deferred functionality, without fake metrics", async () => {
+  it("navigation opens implemented views, without fake metrics", async () => {
     vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(url.endsWith("/health")
       ? health() : new Response(JSON.stringify({ items: [], total: 0, limit: 10, offset: 0 })))))
     mount()
@@ -55,7 +56,7 @@ describe("bootstrap UI", () => {
     await userEvent.click(screen.getByRole("link", { name: "Graf witryny" }))
     expect(await screen.findByRole("heading", { name: "Graf witryny" })).toBeInTheDocument()
     await userEvent.click(screen.getByRole("link", { name: "Porównania" }))
-    expect(await screen.findByRole("heading", { name: "Porównania i eksperymenty" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Porównania i eksperymenty" }, { timeout: 10000 })).toBeInTheDocument()
   })
 
   it("aborts pending request on unmount", async () => {

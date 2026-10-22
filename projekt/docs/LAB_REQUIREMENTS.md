@@ -20,6 +20,8 @@
 
 ## Scenariusz końcowy
 
+Wykonane dowody, dokładna topologia 22 HTML/depth 3, konfiguracje i oczekiwane liczniki dla wszystkich ośmiu punktów: [ACCEPTANCE.md](ACCEPTANCE.md). Obsługa aplikacji i jawna interpretacja historycznych opcji: [USER_GUIDE.md](USER_GUIDE.md). Wyniki QA: [PHASE_08.md](PHASE_08.md).
+
 1. Uruchom aplikację i lokalną deterministyczną witrynę testową (minimum 21 stron, trzy przejścia od startu).
 2. Utwórz sesję A: depth 3, BFS, server, hyperlinks. Uruchom crawl i sprawdź graf/liczniki.
 3. Uruchom warianty strategii, zakresu i typu linków. Zapisz wyniki i porównaj.

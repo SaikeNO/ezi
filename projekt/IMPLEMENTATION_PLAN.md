@@ -62,6 +62,8 @@ Implementuj etapy **kolejno**. Po każdym etapie: wykonaj testy, popraw wykryte 
 
 ## Etap 08 — Reports, QA & Documentation
 
+**Status:** ukończony 2026-10-22. Dashboard, raporty HTML, deterministyczna witryna 22 HTML / depth 3, macierz ośmiu wymagań i wyniki QA: `docs/PHASE_08.md`, `docs/ACCEPTANCE.md`, `docs/USER_GUIDE.md`. PDF opcjonalny, niewdrożony.
+
 **Zadania:** raport do sprawozdania (HTML; PDF opcjonalnie), dashboard, obsługa stanów pustych/błędów, testowa witryna z >=20 podstronami i >=3 poziomami głębokości, unit/integration/E2E, dokumentacja użytkownika i testy wymagań I.1–II.8.
 
 **Definition of Done:** wszystkie osiem punktów ćwiczenia ma dowód działania i scenariusz akceptacyjny; build, testy i instrukcja uruchomienia są zweryfikowane.

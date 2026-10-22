@@ -1,6 +1,6 @@
 # WebCrawler Studio
 
-Polskojęzyczna aplikacja do badania struktury WWW. **Etap 07 ukończony:** crawler, metadane, graf, eksplorator/CSV oraz eksperymenty 2–4 konfiguracji i porównania rzeczywiście zapisanych wyników z wykresami. Raport laboratoryjny/dashboard pozostaje w etapie 08.
+Polskojęzyczna aplikacja do badania struktury WWW. **Etap 08 ukończony:** crawler, metadane, graf, eksplorator/CSV, eksperymenty i porównania, dashboard zapisanych wyników oraz pobierane raporty HTML sesji i porównań. [Instrukcja użytkownika](docs/USER_GUIDE.md), [osiem scenariuszy akceptacyjnych](docs/ACCEPTANCE.md), [wyniki QA i ograniczenia](docs/PHASE_08.md).
 
 ## Uruchomienie w Dockerze
 
@@ -70,7 +70,7 @@ W szczegółach sesji wybierz **Otwórz graf sesji** lub otwórz **Graf witryny*
 
 Kliknij węzeł lub wyszukaj URL/tytuł i wybierz wynik z listy, aby odczytać metadane, body i in/out-degree. Wyszukiwanie nie zmienia statystyk. **Odśwież graf** pobiera nowy snapshot; widok nie przestawia się automatycznie podczas interakcji. Statystyki rozróżniają wystąpienia linków, unikalne relacje, pobrane HTML i odkryte strony. Zasoby nie zwiększają osiągniętej głębokości HTML.
 
-Wizualizacja obsługuje do 5000 węzłów i 20000 wystąpień linków. Większy graf daje jawny komunikat oraz pełne statystyki, bez ukrytego ucinania danych. API: `GET /api/sessions/{id}/graph` i `/stats`; [kontrakt](docs/API.md), [semantyka](docs/ARCHITECTURE.md), [raport etapu 05](docs/PHASE_05.md). Nie rozpoczęto eksportu/eksploratora etapu 06.
+Wizualizacja obsługuje do 5000 węzłów i 20000 wystąpień linków. Większy graf daje jawny komunikat oraz pełne statystyki, bez ukrytego ucinania danych. API: `GET /api/sessions/{id}/graph` i `/stats`; [kontrakt](docs/API.md), [semantyka](docs/ARCHITECTURE.md), [raport etapu 05](docs/PHASE_05.md).
 
 ## Dane i CSV (etap 06)
 
@@ -89,6 +89,45 @@ Po zakończeniu/anulowaniu wybierz **Porównaj warianty**. Można też wskazać 
 Wyniki częściowe/limity/błędy są oznaczane; brak URL nie oznacza, że strona jest nieosiągalna. Pełne zbiory BFS/DFS mogą być identyczne. Czas obejmuje opóźnienia/robots/sieć/analizę i współdzielone zasoby, więc nie dowodzi przewagi algorytmu ani przyczyny zmiany treści. Nie wybieramy automatycznie najlepszego ustawienia.
 
 Usunięcie grupy zachowuje sesje i nie zatrzymuje ich pracy; usunięcie sesji usuwa ją z grupy, a mniej niż dwa pozostałe warianty oznacza incomplete. Dane i konfiguracje przetrwają restart, ale aktywna kolejka crawlera nie jest automatycznie wznawiana. Porównanie ma limit łącznie 20000 Page, 80000 Link, 64 MiB treści i budżet analizy 30 s — duże wyniki dają jawny błąd. [API](docs/API.md), [semantyka](docs/ARCHITECTURE.md), [raport etapu 07](docs/PHASE_07.md).
+
+## Dashboard i raporty (etap 08)
+
+Na **Przeglądzie** dashboard odczytuje snapshot całej bazy: sesje/statusy, odkryte strony, pobrane HTML, linki, błędy i pięć ostatnich sesji. Liczniki pochodzą z rekordów Page/Link, nie z przykładowych danych. **Odśwież dashboard** pobiera nowy stan. Sumy nie deduplikują URL pomiędzy sesjami.
+
+W szczegółach sesji wybierz **Pobierz raport sesji HTML**. W gotowym porównaniu wybierz **Pobierz raport porównania HTML**. Zapisany plik otwiera się offline w przeglądarce: konfiguracja, identyfikatory/status/czasy, metryki, głębokość i stopnie, pokrycie metadanych lub różnice zbiorów/treści, interpretacja zastosowań i ograniczenia. Raport sesji nie porównuje samodzielnie różnych konfiguracji. Wyniki oczekujące/częściowe/błędne są oznaczane. Brak czasu pozostaje brakiem.
+
+Raport sesji ma limit 5000 węzłów / 20000 linków; większe sesje nadal udostępniają stats/CSV. Raport porównania zachowuje budżety API porównania i pokazuje pierwsze 100 elementów każdej listy z pełnymi total; treść ma podglądy 500 znaków oraz pełne hashe. Szczegóły są rozwijane jako JSON. Pełne partie są dostępne w API. Błędy pobierania mają ponowienie; można anulować żądanie. Automatyczny PDF nie jest częścią etapu; opcjonalny druk zapewnia przeglądarka. Treści witryn są escapowane, raport nie wykonuje ich HTML/JS.
+
+## Deterministyczna witryna laboratoryjna
+
+`backend/tests/lab_site.py`: **22 wewnętrzne HTML (root + 21 podstron), depth 0–3**, dodatkowo zewnętrzny HTML, 503, cykle, duplikat, obraz/CSS/JS i różne metadane. To jawna witryna testowa, nie wyniki publicznego crawlu. Pełny scenariusz z pięcioma niezależnymi crawlami i restartem:
+
+```powershell
+cd C:\studia\ezi\projekt\backend
+uv run pytest tests/test_reporting.py -q
+```
+
+`npm run test:e2e` automatycznie uruchamia tę witrynę, backend i frontend na osobnej bazie/portach. Do ręcznej pracy z tą samą witryną, w **osobnym terminalu** (zmienne obowiązują tylko w nim):
+
+```powershell
+cd C:\studia\ezi\projekt\backend
+$env:DATABASE_URL = 'sqlite:///./data/lab.db'
+$env:CORS_ORIGINS = '["http://127.0.0.1:15178"]'
+uv run alembic upgrade head
+uv run uvicorn e2e_app:app --app-dir tests --host 127.0.0.1 --port 18008 --timeout-graceful-shutdown 5
+```
+
+W drugim osobnym terminalu:
+
+```powershell
+cd C:\studia\ezi\projekt\frontend
+$env:VITE_API_BASE_URL = 'http://127.0.0.1:18008'
+npm.cmd run dev -- --host 127.0.0.1 --port 15178
+```
+
+Otwórz `http://127.0.0.1:15178`, utwórz sesję z **`http://site.example/lab/`**. W Windows/PowerShell użyj `npm.cmd` przy przekazywaniu argumentów po `--`: zainstalowany npm 12 przez `npm.ps1` odrzucał `--host`. Nie otwieraj tej wirtualnej nazwy w zwykłej przeglądarce: tylko testowy transport kieruje ją do rzeczywistego lokalnego serwera HTTP. Nie edytuj DNS/hosts i nie wyłączaj SSRF. `/lab/` w zwykłym produkcyjnym backendzie nie jest dostępną publiczną witryną. Katalog `tests` nie jest kopiowany do obrazu Docker. Przerwij oba procesy Ctrl+C; plik `data/lab.db` zachowuje wyniki. Te porty i DB są niezależne od zwykłej aplikacji 8000/5173 oraz E2E 18000/15173. Zatrzymaj Vite przed `npm ci`, aby uniknąć blokady natywnego modułu CSS przez Windows.
+
+Oczekiwania: BFS/server/hyperlinks/depth 3 daje 22 HTML, 39 linków, depth 3 i jeden kontrolowany błąd; DFS zmienia kolejność, pełne zbiory pozostają takie same. Images daje 40 linków, all_links 42. Web+follow_external/depth 2 daje 11 HTML i 27 linków; artykuły na depth 3 pozostają odkryte. Dokładne ustawienia, osiem dowodów i interpretacja dawnych opcji ćwiczenia: [akceptacja](docs/ACCEPTANCE.md), [instrukcja](docs/USER_GUIDE.md).
 
 ## Zmienne środowiska
 
@@ -126,7 +165,7 @@ npm run test:e2e
 
 Playwright sam uruchamia rzeczywisty backend, kontrolowaną witrynę HTTP i frontend na osobnych portach **18000/15173**, z osobną bazą `projekt/data/e2e.db` i konfiguracją CORS. Testowy backend jest wstrzykiwany wyłącznie w `tests/e2e_app.py`; obraz produkcyjny nie zawiera katalogu tests ani takiej opcji środowiskowej. Nie wymaga zatrzymania Compose. Porty testowe muszą być wolne. Testy obejmują odczyt prawdziwego statusu SQLite, ponowienie, nawigację, odświeżenie podstrony, widok mobilny i niedostępność API. Testy obejmują też CRUD sesji, rzeczywiste pobieranie z witryny fixture, limit stron, zachowanie wyników po odświeżeniu i anulowanie. Deterministyczne testy nie zależą od zmiennych publicznych witryn.
 
-Wyniki i lista plików etapu 07: [raport](docs/PHASE_07.md). Wcześniejsze kontrole: [etap 06](docs/PHASE_06.md), [etap 05](docs/PHASE_05.md), [etap 04](docs/PHASE_04.md), [etap 03](docs/PHASE_03.md), [etap 02](docs/PHASE_02.md), [etap 01](docs/PHASE_01.md).
+Wyniki i lista plików etapu 08: [raport QA](docs/PHASE_08.md). Testy wymagają wolnych portów E2E; zachowane rekordy w `data/e2e.db` nie wymagają kasowania bazy. Testy tworzą własne sesje. Komendy backendu, instalacji npm, buildu, audytu i E2E sprawdzono lokalnie 2026-10-22 (Python 3.14.4, Node 22.23.2, npm 12.1.0, uv 0.11.11); szczegóły i ostrzeżenia w raporcie QA. Docker opisuje wcześniejszą ścieżkę uruchomienia; jego ponowną walidację w etapie 08 raportujemy oddzielnie. Wcześniejsze kontrole: [etap 07](docs/PHASE_07.md), [etap 06](docs/PHASE_06.md), [etap 05](docs/PHASE_05.md), [etap 04](docs/PHASE_04.md), [etap 03](docs/PHASE_03.md), [etap 02](docs/PHASE_02.md), [etap 01](docs/PHASE_01.md).
 
 ## Struktura
 
@@ -148,6 +187,6 @@ Zależności backendu przypina `uv.lock`; eksport produkcyjny `requirements.lock
 - [API](docs/API.md)
 - [Wymagania laboratorium](docs/LAB_REQUIREMENTS.md)
 
-Ekstrakcja, graf, eksplorator/CSV i porównania są wdrożone. Cytoscape.js obsługuje graf, Recharts wykresy pomiarów porównania. Raport laboratoryjny i dashboard pozostają w etapie 08.
+Wszystkie etapy 01–08 są wdrożone. Cytoscape.js obsługuje graf, Recharts wykresy porównań; dashboard i raporty korzystają z zapisanej bazy. Automatyczny PDF pozostaje opcjonalnym niewdrożonym rozszerzeniem. Nie rozpoczęto dodatkowych etapów.
 
 Konfiguracja UI oparta na oficjalnych instrukcjach [Tailwind + Vite](https://tailwindcss.com/docs/installation/using-vite) i [shadcn/ui + Vite](https://ui.shadcn.com/docs/installation/vite). Button wygenerowano CLI shadcn, następnie dopasowano importy do lokalnego `cn` i `@radix-ui/react-slot`.

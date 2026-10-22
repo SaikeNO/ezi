@@ -254,6 +254,7 @@ export function SessionDetail() {
       />
       <Link to={"/graph/" + id} className="mt-6 inline-block rounded-lg border bg-white px-4 py-3 text-sm font-medium text-teal-800 hover:bg-teal-50">Otwórz graf sesji</Link>
       <Link to={"/data/" + id} className="mt-6 ml-3 inline-block rounded-lg border bg-white px-4 py-3 text-sm font-medium text-teal-800 hover:bg-teal-50">Dane i eksport CSV</Link>
+      <ReportDownload sessionId={id} />
       {item.error && (
         <p role="alert" className="mt-4 text-red-800">
           {item.error}
@@ -362,3 +363,4 @@ export function SessionDetail() {
     </>
   );
 }
+import { ReportDownload } from "@/components/report-download";
